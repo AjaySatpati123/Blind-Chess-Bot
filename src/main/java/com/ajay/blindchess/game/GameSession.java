@@ -24,11 +24,17 @@ public class GameSession {
 
     private boolean active;
 
+    private double whiteScore;
+    private double blackScore;
+
+    private String endReason;
+
     public GameSession(
             String channelId,
             String whitePlayerId,
             String blackPlayerId
     ) {
+
         this.gameId = UUID.randomUUID().toString();
 
         this.channelId = channelId;
@@ -36,12 +42,18 @@ public class GameSession {
         this.blackPlayerId = blackPlayerId;
 
         this.board = new Board();
+
         this.moveHistory = new ArrayList<>();
 
         this.whiteShowBoardCount = 0;
         this.blackShowBoardCount = 0;
 
         this.active = true;
+
+        this.whiteScore = 0;
+        this.blackScore = 0;
+
+        this.endReason = null;
     }
 
     public String getGameId() {
@@ -80,6 +92,80 @@ public class GameSession {
         moveHistory.add(move);
     }
 
+    public String getFormattedMoveHistory() {
+
+        if (moveHistory.isEmpty()) {
+            return "No moves.";
+        }
+
+        StringBuilder history = new StringBuilder();
+
+        for (int i = 0; i < moveHistory.size(); i += 2) {
+
+            int moveNumber = (i / 2) + 1;
+
+            history.append(moveNumber)
+                    .append(". ")
+                    .append(moveHistory.get(i));
+
+            if (i + 1 < moveHistory.size()) {
+                history.append(" ")
+                        .append(moveHistory.get(i + 1));
+            }
+
+            history.append("\n");
+        }
+
+        return history.toString();
+    }
+
+    public boolean hasPlayer(String playerId) {
+
+        return whitePlayerId.equals(playerId)
+                || blackPlayerId.equals(playerId);
+    }
+
+    public boolean isWhite(String playerId) {
+        return whitePlayerId.equals(playerId);
+    }
+
+    public boolean isBlack(String playerId) {
+        return blackPlayerId.equals(playerId);
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void endGame() {
+        active = false;
+    }
+
+    public void finishGame(
+            double whiteScore,
+            double blackScore,
+            String endReason
+    ) {
+
+        this.whiteScore = whiteScore;
+        this.blackScore = blackScore;
+        this.endReason = endReason;
+
+        this.active = false;
+    }
+
+    public double getWhiteScore() {
+        return whiteScore;
+    }
+
+    public double getBlackScore() {
+        return blackScore;
+    }
+
+    public String getEndReason() {
+        return endReason;
+    }
+
     public int getWhiteShowBoardCount() {
         return whiteShowBoardCount;
     }
@@ -94,26 +180,5 @@ public class GameSession {
 
     public void incrementBlackShowBoardCount() {
         blackShowBoardCount++;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public void endGame() {
-        active = false;
-    }
-
-    public boolean hasPlayer(String playerId) {
-        return whitePlayerId.equals(playerId)
-                || blackPlayerId.equals(playerId);
-    }
-
-    public boolean isWhite(String playerId) {
-        return whitePlayerId.equals(playerId);
-    }
-
-    public boolean isBlack(String playerId) {
-        return blackPlayerId.equals(playerId);
     }
 }

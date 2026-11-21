@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
 import java.util.concurrent.ThreadLocalRandom;
+import com.ajay.blindchess.board.BoardRenderer;
 
 public class ColorButtonListener extends ListenerAdapter {
 
@@ -100,12 +101,17 @@ public class ColorButtonListener extends ListenerAdapter {
 
         event.editMessage(
                         "♟️ **Blind Chess Game**\n\n"
-                                + extraMessage
                                 + "🎮 Game: **"
                                 + gameSession.getShortGameId()
                                 + "**\n\n"
+                                + extraMessage
                                 + "⚪ White: <@" + whitePlayerId + ">\n"
                                 + "⚫ Black: <@" + blackPlayerId + ">\n\n"
+                                + BoardRenderer.renderInitialBoard(
+                                        whitePlayerId,
+                                        blackPlayerId
+                                )
+                                + "\n\n"
                                 + "⚪ **White to move.**"
                 )
                 .setComponents()
