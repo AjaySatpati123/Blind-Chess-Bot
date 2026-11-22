@@ -22,6 +22,9 @@ public class GameSession {
     private int whiteShowBoardCount;
     private int blackShowBoardCount;
 
+    private final List<Integer> whiteShowBoardHistory;
+    private final List<Integer> blackShowBoardHistory;
+
     private boolean active;
 
     private double whiteScore;
@@ -47,6 +50,9 @@ public class GameSession {
 
         this.whiteShowBoardCount = 0;
         this.blackShowBoardCount = 0;
+
+        this.whiteShowBoardHistory = new ArrayList<>();
+        this.blackShowBoardHistory = new ArrayList<>();
 
         this.active = true;
 
@@ -174,11 +180,31 @@ public class GameSession {
         return blackShowBoardCount;
     }
 
-    public void incrementWhiteShowBoardCount() {
-        whiteShowBoardCount++;
+    public void recordShowBoard(String playerId) {
+
+        int currentPly = moveHistory.size();
+
+        if (isWhite(playerId)) {
+
+            whiteShowBoardCount++;
+            whiteShowBoardHistory.add(currentPly);
+
+        } else if (isBlack(playerId)) {
+
+            blackShowBoardCount++;
+            blackShowBoardHistory.add(currentPly);
+        }
     }
 
-    public void incrementBlackShowBoardCount() {
-        blackShowBoardCount++;
+    public List<Integer> getWhiteShowBoardHistory() {
+        return Collections.unmodifiableList(
+                whiteShowBoardHistory
+        );
+    }
+
+    public List<Integer> getBlackShowBoardHistory() {
+        return Collections.unmodifiableList(
+                blackShowBoardHistory
+        );
     }
 }

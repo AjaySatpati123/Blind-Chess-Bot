@@ -11,6 +11,7 @@ import com.ajay.blindchess.listener.SlashCommandListener;
 import com.ajay.blindchess.listener.ChallengeButtonListener;
 import com.ajay.blindchess.listener.ColorButtonListener;
 import com.ajay.blindchess.listener.GameSelectListener;
+import com.ajay.blindchess.listener.ShowBoardListener;
 
 public class BlindChessBot {
 
@@ -31,7 +32,8 @@ public class BlindChessBot {
                         new SlashCommandListener(),
                         new ChallengeButtonListener(),
                         new ColorButtonListener(),
-                        new GameSelectListener()
+                        new GameSelectListener(),
+                        new ShowBoardListener()
                 )
                 .setActivity(Activity.playing("Blind Chess"))
                 .build();
@@ -49,7 +51,12 @@ public class BlindChessBot {
                                         "opponent",
                                         "The player you want to challenge",
                                         true
-                                )
+                                ),
+
+                        Commands.slash(
+                                "showboard",
+                                "Temporarily reveal your current chess position"
+                        )
                 )
                 .queue();
 
