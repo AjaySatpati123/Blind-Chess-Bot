@@ -1,12 +1,15 @@
 package com.ajay.blindchess.listener;
 
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
 import java.util.concurrent.ThreadLocalRandom;
 import com.ajay.blindchess.board.BoardRenderer;
-
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.utils.FileUpload;
 public class ColorButtonListener extends ListenerAdapter {
 
     @Override
@@ -88,6 +91,36 @@ public class ColorButtonListener extends ListenerAdapter {
 
         GameManager.getInstance().addGame(gameSession);
 
+        Guild guild = event.getGuild();
+
+        if (guild == null) {
+            event.reply("This command can only be used inside a Discord server.")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
+
+        Member whiteMember =
+                guild.retrieveMemberById(whitePlayerId)
+                        .complete();
+
+        Member blackMember =
+                guild.retrieveMemberById(blackPlayerId)
+                        .complete();
+
+        String whitePlayerName =
+                whiteMember.getEffectiveName();
+
+        String blackPlayerName =
+                blackMember.getEffectiveName();
+
+        byte[] boardImage =
+                BoardRenderer.renderBoard(
+                        gameSession.getBoard(),
+                        blackPlayerName,
+                        whitePlayerName
+                );
+
         System.out.println(
                 "Game created: "
                         + gameSession.getShortGameId()
@@ -105,14 +138,21 @@ public class ColorButtonListener extends ListenerAdapter {
                                 + gameSession.getShortGameId()
                                 + "**\n\n"
                                 + extraMessage
-                                + "⚪ White: <@" + whitePlayerId + ">\n"
-                                + "⚫ Black: <@" + blackPlayerId + ">\n\n"
-                                + BoardRenderer.renderInitialBoard(
-                                        whitePlayerId,
-                                        blackPlayerId
-                                )
-                                + "\n\n"
+                                + "⚫ Black: <@"
+                                + blackPlayerId
+                                + ">\n"
+                                + "⚪ White: <@"
+                                + whitePlayerId
+                                + ">\n\n"
                                 + "⚪ **White to move.**"
+                )
+                .setFiles(
+                        FileUpload.fromData(
+                                boardImage,
+                                "board-"
+                                        + gameSession.getShortGameId()
+                                        + ".png"
+                        )
                 )
                 .setComponents()
                 .queue();
