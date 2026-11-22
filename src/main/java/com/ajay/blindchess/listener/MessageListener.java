@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import java.util.Locale;
+import com.ajay.blindchess.board.FinalBoardService;
 
 import java.util.List;
 import java.util.regex.Pattern;
@@ -98,7 +99,17 @@ public class MessageListener extends ListenerAdapter {
 
             event.getChannel()
                     .sendMessage(result.message())
-                    .queue();
+                    .queue(ignored -> {
+
+                        if (!game.isActive()) {
+
+                            FinalBoardService.sendFinalBoard(
+                                    event.getChannel(),
+                                    event.getGuild(),
+                                    game
+                            );
+                        }
+                    });
 
             return;
         }

@@ -6,6 +6,7 @@ import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import com.ajay.blindchess.board.FinalBoardService;
 
 public class GameSelectListener extends ListenerAdapter {
 
@@ -99,6 +100,16 @@ public class GameSelectListener extends ListenerAdapter {
                         result.message()
                 )
                 .setComponents()
-                .queue();
+                .queue(message -> {
+
+                    if (!game.isActive()) {
+
+                        FinalBoardService.sendFinalBoard(
+                                event.getChannel(),
+                                event.getGuild(),
+                                game
+                        );
+                    }
+                });
     }
 }
