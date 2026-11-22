@@ -36,3 +36,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+data/games.json
+data/games.tmp.json

@@ -1,5 +1,6 @@
 package com.ajay.blindchess.chess;
 
+import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
@@ -18,6 +19,10 @@ public class MoveService {
 
         synchronized (game) {
 
+            // =========================
+            // GAME ALREADY FINISHED
+            // =========================
+
             if (!game.isActive()) {
 
                 return new MoveResult(
@@ -27,6 +32,10 @@ public class MoveService {
             }
 
             Board board = game.getBoard();
+
+            // =========================
+            // IDENTIFY PLAYER COLOUR
+            // =========================
 
             Side playerSide;
 
@@ -46,7 +55,10 @@ public class MoveService {
                 );
             }
 
-            // Check turn
+            // =========================
+            // CHECK TURN
+            // =========================
+
             if (board.getSideToMove() != playerSide) {
 
                 return new MoveResult(
@@ -57,13 +69,18 @@ public class MoveService {
                 );
             }
 
+            // =========================
+            // PARSE SAN
+            // =========================
+
             Move parsedMove;
 
-            // Parse SAN
             try {
 
                 MoveList moveList =
-                        new MoveList(board.getFen());
+                        new MoveList(
+                                board.getFen()
+                        );
 
                 moveList.addSanMove(
                         san,
@@ -81,12 +98,15 @@ public class MoveService {
                 return new MoveResult(
                         false,
                         "❌ `" + san
-                                + "` is invalid notation or cannot be played here.\n"
+                                + "` is invalid chess notation.\n"
                                 + "Please enter the move again."
                 );
             }
 
-            // Check legal moves
+            // =========================
+            // VALIDATE LEGAL MOVE
+            // =========================
+
             List<Move> legalMoves =
                     board.legalMoves();
 
@@ -102,7 +122,10 @@ public class MoveService {
                 );
             }
 
-            // Play move
+            // =========================
+            // PLAY MOVE
+            // =========================
+
             boolean moved =
                     board.doMove(
                             parsedMove,
@@ -117,6 +140,7 @@ public class MoveService {
                 );
             }
 
+            // Store SAN in move history
             game.addMove(san);
 
             // =========================
@@ -142,9 +166,14 @@ public class MoveService {
                     );
                 }
 
+                // Save completed state
+                saveGames();
+
                 return new MoveResult(
                         true,
-                        "♟️ **" + san + "** played"
+                        "♟️ **"
+                                + san
+                                + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
@@ -153,8 +182,7 @@ public class MoveService {
                                 + "\n\n"
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
-                                + "```"
-                                + "\n"
+                                + "```\n"
                                 + getRevealHistoryText(game)
                 );
             }
@@ -171,9 +199,13 @@ public class MoveService {
                         "Stalemate"
                 );
 
+                saveGames();
+
                 return new MoveResult(
                         true,
-                        "♟️ **" + san + "** played"
+                        "♟️ **"
+                                + san
+                                + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
@@ -182,15 +214,25 @@ public class MoveService {
                                 + "\n\n"
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
-                                + "```"
-                                + "\n"
+                                + "```\n"
                                 + getRevealHistoryText(game)
                 );
             }
 
             // =========================
-            // OTHER DRAW
+            // OTHER AUTOMATIC DRAW
             // =========================
+
+            /*
+             * Chesslib's isDraw() also handles states such as:
+             *
+             * - Threefold repetition
+             * - 50-move rule
+             * - Insufficient material
+             *
+             * Stalemate was already handled above so that
+             * we can display a specific message.
+             */
 
             if (board.isDraw()) {
 
@@ -200,9 +242,13 @@ public class MoveService {
                         "Draw"
                 );
 
+                saveGames();
+
                 return new MoveResult(
                         true,
-                        "♟️ **" + san + "** played"
+                        "♟️ **"
+                                + san
+                                + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
@@ -211,8 +257,7 @@ public class MoveService {
                                 + "\n\n"
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
-                                + "```"
-                                + "\n"
+                                + "```\n"
                                 + getRevealHistoryText(game)
                 );
             }
@@ -223,15 +268,20 @@ public class MoveService {
 
             String nextPlayer;
 
-            if (board.getSideToMove() == Side.WHITE) {
+            if (board.getSideToMove()
+                    == Side.WHITE) {
 
                 nextPlayer =
-                        "<@" + game.getWhitePlayerId() + ">";
+                        "<@"
+                                + game.getWhitePlayerId()
+                                + ">";
 
             } else {
 
                 nextPlayer =
-                        "<@" + game.getBlackPlayerId() + ">";
+                        "<@"
+                                + game.getBlackPlayerId()
+                                + ">";
             }
 
             String checkMessage = "";
@@ -242,9 +292,14 @@ public class MoveService {
                         "\n⚠️ **Check!**";
             }
 
+            // Persist successful normal move
+            saveGames();
+
             return new MoveResult(
                     true,
-                    "♟️ **" + san + "** played"
+                    "♟️ **"
+                            + san
+                            + "** played"
                             + " • Game **"
                             + game.getShortGameId()
                             + "**"
@@ -256,16 +311,66 @@ public class MoveService {
         }
     }
 
+    // ==========================================================
+    // SAVE GAME STATE
+    // ==========================================================
+
+    private static void saveGames() {
+
+        GameManager.getInstance()
+                .saveNow();
+    }
+
+    // ==========================================================
+    // RESULT TEXT
+    // ==========================================================
+
     private static String getResultText(
             GameSession game
     ) {
 
-        return "<@" + game.getWhitePlayerId() + "> : "
-                + formatScore(game.getWhiteScore())
+        return "<@"
+                + game.getWhitePlayerId()
+                + "> : "
+                + formatScore(
+                game.getWhiteScore()
+        )
                 + "\n"
-                + "<@" + game.getBlackPlayerId() + "> : "
-                + formatScore(game.getBlackScore());
+                + "<@"
+                + game.getBlackPlayerId()
+                + "> : "
+                + formatScore(
+                game.getBlackScore()
+        );
     }
+
+    // ==========================================================
+    // SHOW BOARD HISTORY
+    // ==========================================================
+
+    private static String getRevealHistoryText(
+            GameSession game
+    ) {
+
+        return "**Board Reveals**\n\n"
+                + "<@"
+                + game.getWhitePlayerId()
+                + ">\n"
+                + game.getFormattedShowBoardHistory(
+                game.getWhitePlayerId()
+        )
+                + "\n\n"
+                + "<@"
+                + game.getBlackPlayerId()
+                + ">\n"
+                + game.getFormattedShowBoardHistory(
+                game.getBlackPlayerId()
+        );
+    }
+
+    // ==========================================================
+    // SCORE FORMAT
+    // ==========================================================
 
     private static String formatScore(
             double score
@@ -280,21 +385,5 @@ public class MoveService {
         }
 
         return "0.5";
-    }
-
-    private static String getRevealHistoryText(
-            GameSession game
-    ) {
-
-        return "**Board Reveals**\n\n"
-                + "<@" + game.getWhitePlayerId() + ">\n"
-                + game.getFormattedShowBoardHistory(
-                game.getWhitePlayerId()
-        )
-                + "\n\n"
-                + "<@" + game.getBlackPlayerId() + ">\n"
-                + game.getFormattedShowBoardHistory(
-                game.getBlackPlayerId()
-        );
     }
 }

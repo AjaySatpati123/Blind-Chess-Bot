@@ -15,6 +15,7 @@ import com.ajay.blindchess.listener.ShowBoardListener;
 import com.ajay.blindchess.listener.ResignListener;
 import com.ajay.blindchess.listener.CancelListener;
 import com.ajay.blindchess.listener.DrawListener;
+import com.ajay.blindchess.game.GameManager;
 
 public class BlindChessBot {
 
@@ -27,6 +28,18 @@ public class BlindChessBot {
                     "DISCORD_BOT_TOKEN environment variable is not configured."
             );
         }
+
+        GameManager.getInstance().loadFromDisk();
+
+        Runtime.getRuntime()
+                .addShutdownHook(
+                        new Thread(
+                                () ->
+                                        GameManager
+                                                .getInstance()
+                                                .saveNow()
+                        )
+                );
 
         JDA jda = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT)

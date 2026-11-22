@@ -32,27 +32,42 @@ public class GameSession {
 
     private String endReason;
 
+    private final long createdAtMillis;
+    private long lastActivityMillis;
+
+    // =========================
+    // NEW GAME
+    // =========================
+
     public GameSession(
             String channelId,
             String whitePlayerId,
             String blackPlayerId
     ) {
 
-        this.gameId = UUID.randomUUID().toString();
+        long now = System.currentTimeMillis();
+
+        this.gameId =
+                UUID.randomUUID().toString();
 
         this.channelId = channelId;
+
         this.whitePlayerId = whitePlayerId;
         this.blackPlayerId = blackPlayerId;
 
         this.board = new Board();
 
-        this.moveHistory = new ArrayList<>();
+        this.moveHistory =
+                new ArrayList<>();
 
         this.whiteShowBoardCount = 0;
         this.blackShowBoardCount = 0;
 
-        this.whiteShowBoardHistory = new ArrayList<>();
-        this.blackShowBoardHistory = new ArrayList<>();
+        this.whiteShowBoardHistory =
+                new ArrayList<>();
+
+        this.blackShowBoardHistory =
+                new ArrayList<>();
 
         this.active = true;
 
@@ -60,6 +75,66 @@ public class GameSession {
         this.blackScore = 0;
 
         this.endReason = null;
+
+        this.createdAtMillis = now;
+        this.lastActivityMillis = now;
+    }
+
+    // =========================
+    // RESTORED GAME
+    // =========================
+
+    public GameSession(
+            String gameId,
+            String channelId,
+            String whitePlayerId,
+            String blackPlayerId,
+            Board board,
+            List<String> moveHistory,
+            int whiteShowBoardCount,
+            int blackShowBoardCount,
+            List<Integer> whiteShowBoardHistory,
+            List<Integer> blackShowBoardHistory,
+            boolean active,
+            double whiteScore,
+            double blackScore,
+            String endReason,
+            long createdAtMillis,
+            long lastActivityMillis
+    ) {
+
+        this.gameId = gameId;
+        this.channelId = channelId;
+
+        this.whitePlayerId = whitePlayerId;
+        this.blackPlayerId = blackPlayerId;
+
+        this.board = board;
+
+        this.moveHistory =
+                new ArrayList<>(moveHistory);
+
+        this.whiteShowBoardCount =
+                whiteShowBoardCount;
+
+        this.blackShowBoardCount =
+                blackShowBoardCount;
+
+        this.whiteShowBoardHistory =
+                new ArrayList<>(whiteShowBoardHistory);
+
+        this.blackShowBoardHistory =
+                new ArrayList<>(blackShowBoardHistory);
+
+        this.active = active;
+
+        this.whiteScore = whiteScore;
+        this.blackScore = blackScore;
+
+        this.endReason = endReason;
+
+        this.createdAtMillis = createdAtMillis;
+        this.lastActivityMillis = lastActivityMillis;
     }
 
     public String getGameId() {
@@ -67,7 +142,9 @@ public class GameSession {
     }
 
     public String getShortGameId() {
-        return gameId.substring(0, 6).toUpperCase();
+        return gameId
+                .substring(0, 6)
+                .toUpperCase();
     }
 
     public String getChannelId() {
@@ -91,11 +168,16 @@ public class GameSession {
     }
 
     public List<String> getMoveHistory() {
-        return Collections.unmodifiableList(moveHistory);
+        return Collections.unmodifiableList(
+                moveHistory
+        );
     }
 
     public void addMove(String move) {
+
         moveHistory.add(move);
+
+        touch();
     }
 
     public String getFormattedMoveHistory() {
@@ -104,19 +186,30 @@ public class GameSession {
             return "No moves.";
         }
 
-        StringBuilder history = new StringBuilder();
+        StringBuilder history =
+                new StringBuilder();
 
-        for (int i = 0; i < moveHistory.size(); i += 2) {
+        for (
+                int i = 0;
+                i < moveHistory.size();
+                i += 2
+        ) {
 
-            int moveNumber = (i / 2) + 1;
+            int moveNumber =
+                    (i / 2) + 1;
 
             history.append(moveNumber)
                     .append(". ")
-                    .append(moveHistory.get(i));
+                    .append(
+                            moveHistory.get(i)
+                    );
 
             if (i + 1 < moveHistory.size()) {
+
                 history.append(" ")
-                        .append(moveHistory.get(i + 1));
+                        .append(
+                                moveHistory.get(i + 1)
+                        );
             }
 
             history.append("\n");
@@ -125,17 +218,25 @@ public class GameSession {
         return history.toString();
     }
 
-    public boolean hasPlayer(String playerId) {
+    public boolean hasPlayer(
+            String playerId
+    ) {
 
         return whitePlayerId.equals(playerId)
                 || blackPlayerId.equals(playerId);
     }
 
-    public boolean isWhite(String playerId) {
+    public boolean isWhite(
+            String playerId
+    ) {
+
         return whitePlayerId.equals(playerId);
     }
 
-    public boolean isBlack(String playerId) {
+    public boolean isBlack(
+            String playerId
+    ) {
+
         return blackPlayerId.equals(playerId);
     }
 
@@ -144,7 +245,10 @@ public class GameSession {
     }
 
     public void endGame() {
+
         active = false;
+
+        touch();
     }
 
     public void finishGame(
@@ -155,9 +259,12 @@ public class GameSession {
 
         this.whiteScore = whiteScore;
         this.blackScore = blackScore;
+
         this.endReason = endReason;
 
         this.active = false;
+
+        touch();
     }
 
     public double getWhiteScore() {
@@ -180,32 +287,45 @@ public class GameSession {
         return blackShowBoardCount;
     }
 
-    public void recordShowBoard(String playerId) {
-
-        int currentPly = moveHistory.size();
-
-        if (isWhite(playerId)) {
-
-            whiteShowBoardCount++;
-            whiteShowBoardHistory.add(currentPly);
-
-        } else if (isBlack(playerId)) {
-
-            blackShowBoardCount++;
-            blackShowBoardHistory.add(currentPly);
-        }
-    }
-
     public List<Integer> getWhiteShowBoardHistory() {
+
         return Collections.unmodifiableList(
                 whiteShowBoardHistory
         );
     }
 
     public List<Integer> getBlackShowBoardHistory() {
+
         return Collections.unmodifiableList(
                 blackShowBoardHistory
         );
+    }
+
+    public void recordShowBoard(
+            String playerId
+    ) {
+
+        int currentPly =
+                moveHistory.size();
+
+        if (isWhite(playerId)) {
+
+            whiteShowBoardCount++;
+
+            whiteShowBoardHistory.add(
+                    currentPly
+            );
+
+        } else if (isBlack(playerId)) {
+
+            blackShowBoardCount++;
+
+            blackShowBoardHistory.add(
+                    currentPly
+            );
+        }
+
+        touch();
     }
 
     public String getFormattedShowBoardHistory(
@@ -215,10 +335,17 @@ public class GameSession {
         List<Integer> history;
 
         if (isWhite(playerId)) {
-            history = whiteShowBoardHistory;
+
+            history =
+                    whiteShowBoardHistory;
+
         } else if (isBlack(playerId)) {
-            history = blackShowBoardHistory;
+
+            history =
+                    blackShowBoardHistory;
+
         } else {
+
             return "";
         }
 
@@ -226,7 +353,8 @@ public class GameSession {
             return "0 reveals";
         }
 
-        StringBuilder result = new StringBuilder();
+        StringBuilder result =
+                new StringBuilder();
 
         result.append(history.size())
                 .append(
@@ -238,7 +366,9 @@ public class GameSession {
         for (Integer ply : history) {
 
             result.append("\n• ")
-                    .append(getRevealLocation(ply));
+                    .append(
+                            getRevealLocation(ply)
+                    );
         }
 
         return result.toString();
@@ -252,9 +382,11 @@ public class GameSession {
             return "Before the first move";
         }
 
-        int moveIndex = ply - 1;
+        int moveIndex =
+                ply - 1;
 
         if (moveIndex >= moveHistory.size()) {
+
             return "After move " + ply;
         }
 
@@ -279,5 +411,19 @@ public class GameSession {
                 + moveNumber
                 + "..."
                 + move;
+    }
+
+    public long getCreatedAtMillis() {
+        return createdAtMillis;
+    }
+
+    public long getLastActivityMillis() {
+        return lastActivityMillis;
+    }
+
+    public void touch() {
+
+        this.lastActivityMillis =
+                System.currentTimeMillis();
     }
 }
