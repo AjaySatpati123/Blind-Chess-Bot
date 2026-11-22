@@ -154,6 +154,8 @@ public class MoveService {
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```"
+                                + "\n"
+                                + getRevealHistoryText(game)
                 );
             }
 
@@ -181,6 +183,8 @@ public class MoveService {
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```"
+                                + "\n"
+                                + getRevealHistoryText(game)
                 );
             }
 
@@ -208,6 +212,8 @@ public class MoveService {
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```"
+                                + "\n"
+                                + getRevealHistoryText(game)
                 );
             }
 
@@ -274,5 +280,21 @@ public class MoveService {
         }
 
         return "0.5";
+    }
+
+    private static String getRevealHistoryText(
+            GameSession game
+    ) {
+
+        return "**Board Reveals**\n\n"
+                + "<@" + game.getWhitePlayerId() + ">\n"
+                + game.getFormattedShowBoardHistory(
+                game.getWhitePlayerId()
+        )
+                + "\n\n"
+                + "<@" + game.getBlackPlayerId() + ">\n"
+                + game.getFormattedShowBoardHistory(
+                game.getBlackPlayerId()
+        );
     }
 }

@@ -207,4 +207,77 @@ public class GameSession {
                 blackShowBoardHistory
         );
     }
+
+    public String getFormattedShowBoardHistory(
+            String playerId
+    ) {
+
+        List<Integer> history;
+
+        if (isWhite(playerId)) {
+            history = whiteShowBoardHistory;
+        } else if (isBlack(playerId)) {
+            history = blackShowBoardHistory;
+        } else {
+            return "";
+        }
+
+        if (history.isEmpty()) {
+            return "0 reveals";
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        result.append(history.size())
+                .append(
+                        history.size() == 1
+                                ? " reveal"
+                                : " reveals"
+                );
+
+        for (Integer ply : history) {
+
+            result.append("\n• ")
+                    .append(getRevealLocation(ply));
+        }
+
+        return result.toString();
+    }
+
+    private String getRevealLocation(
+            int ply
+    ) {
+
+        if (ply == 0) {
+            return "Before the first move";
+        }
+
+        int moveIndex = ply - 1;
+
+        if (moveIndex >= moveHistory.size()) {
+            return "After move " + ply;
+        }
+
+        String move =
+                moveHistory.get(moveIndex);
+
+        int moveNumber =
+                (moveIndex / 2) + 1;
+
+        boolean whiteMove =
+                moveIndex % 2 == 0;
+
+        if (whiteMove) {
+
+            return "After "
+                    + moveNumber
+                    + "."
+                    + move;
+        }
+
+        return "After "
+                + moveNumber
+                + "..."
+                + move;
+    }
 }

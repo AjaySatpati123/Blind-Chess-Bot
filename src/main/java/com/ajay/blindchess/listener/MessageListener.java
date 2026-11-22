@@ -23,6 +23,13 @@ public class MessageListener extends ListenerAdapter {
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
 
+        System.out.println(
+                "MESSAGE: "
+                        + event.getAuthor().getName()
+                        + " -> "
+                        + event.getMessage().getContentRaw()
+        );
+
         if (event.getAuthor().isBot()) {
             return;
         }
@@ -33,6 +40,10 @@ public class MessageListener extends ListenerAdapter {
                         .trim();
 
         String message = normalizeMove(rawMessage);
+
+        System.out.println(
+                "NORMALIZED: " + message
+        );
 
         String playerId =
                 event.getAuthor().getId();
@@ -47,10 +58,19 @@ public class MessageListener extends ListenerAdapter {
                                 channelId
                         );
 
+        System.out.println(
+                "ACTIVE GAMES FOUND: " + games.size()
+        );
+
         // Player has no active games here
         if (games.isEmpty()) {
             return;
         }
+
+        System.out.println(
+                "SAN MATCH: "
+                        + SAN_PATTERN.matcher(message).matches()
+        );
 
         // Ignore normal conversation
         if (!SAN_PATTERN.matcher(message).matches()) {
@@ -61,6 +81,13 @@ public class MessageListener extends ListenerAdapter {
         if (games.size() == 1) {
 
             GameSession game = games.get(0);
+
+            System.out.println(
+                    "PLAYING MOVE "
+                            + message
+                            + " IN GAME "
+                            + game.getShortGameId()
+            );
 
             MoveResult result =
                     MoveService.playMove(
@@ -166,7 +193,7 @@ public class MessageListener extends ListenerAdapter {
 
         String move = input.trim();
 
-        // Allow 0-0 / o-o as castling
+        // Allow 0-0 / o-o
         move = move.replace('0', 'O');
 
         if (move.equalsIgnoreCase("o-o")) {
@@ -179,17 +206,61 @@ public class MessageListener extends ListenerAdapter {
 
         move = move.toLowerCase(Locale.ROOT);
 
-        // Piece letters must be uppercase in SAN
-        if (!move.isEmpty()
-                && "kqrbn".indexOf(move.charAt(0)) >= 0) {
+        if (move.isEmpty()) {
+            return move;
+        }
+
+        char first = move.charAt(0);
+
+        // King, Queen, Rook and Knight are unambiguous
+        if ("kqrn".indexOf(first) >= 0) {
 
             move =
-                    Character.toUpperCase(move.charAt(0))
+                    Character.toUpperCase(first)
                             + move.substring(1);
         }
 
-        // Promotion piece must also be uppercase
-        int promotionIndex = move.indexOf('=');
+        /*
+         * 'b' is special because it can mean:
+         *
+         * b4    = pawn move
+         * bxc5  = pawn capture
+         *
+         * bf4   = user meant Bf4
+         * bb5   = user meant Bb5
+         * bxe5  = user meant Bxe5
+         */
+        else if (first == 'b' && move.length() >= 2) {
+
+            char second = move.charAt(1);
+
+            boolean pawnMove =
+                    Character.isDigit(second);
+
+            boolean pawnCapture = false;
+
+            if (second == 'x' && move.length() >= 3) {
+
+                char destinationFile =
+                        move.charAt(2);
+
+                // A pawn on the b-file can only capture a-file or c-file
+                pawnCapture =
+                        destinationFile == 'a'
+                                || destinationFile == 'c';
+            }
+
+            if (!pawnMove && !pawnCapture) {
+
+                move =
+                        'B'
+                                + move.substring(1);
+            }
+        }
+
+        // Promotion piece must be uppercase
+        int promotionIndex =
+                move.indexOf('=');
 
         if (promotionIndex >= 0
                 && promotionIndex + 1 < move.length()) {
@@ -200,9 +271,14 @@ public class MessageListener extends ListenerAdapter {
                     );
 
             move =
-                    move.substring(0, promotionIndex + 1)
+                    move.substring(
+                            0,
+                            promotionIndex + 1
+                    )
                             + promotionPiece
-                            + move.substring(promotionIndex + 2);
+                            + move.substring(
+                            promotionIndex + 2
+                    );
         }
 
         return move;
