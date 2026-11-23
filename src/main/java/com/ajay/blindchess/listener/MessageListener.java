@@ -1,37 +1,41 @@
 package com.ajay.blindchess.listener;
 
+import com.ajay.blindchess.board.FinalBoardService;
 import com.ajay.blindchess.chess.MoveResult;
 import com.ajay.blindchess.chess.MoveService;
 import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
+import com.ajay.blindchess.game.SanUtils;
+
+import com.github.bhlangonijr.chesslib.Side;
+
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import java.util.Locale;
-import com.ajay.blindchess.board.FinalBoardService;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class MessageListener extends ListenerAdapter {
 
-    private static final Pattern SAN_PATTERN =
-            Pattern.compile(
-                    "^(?:O-O(?:-O)?|[KQRBN]?[a-h1-8]{0,2}x?[a-h][1-8](?:=[QRBN])?)[+#]?$"
-            );
-
     @Override
-    public void onMessageReceived(MessageReceivedEvent event) {
+    public void onMessageReceived(
+            MessageReceivedEvent event
+    ) {
 
-        System.out.println(
-                "MESSAGE: "
-                        + event.getAuthor().getName()
-                        + " -> "
-                        + event.getMessage().getContentRaw()
-        );
+        // ======================================================
+        // IGNORE BOT MESSAGES
+        // ======================================================
 
         if (event.getAuthor().isBot()) {
+            return;
+        }
+
+        // ======================================================
+        // ONLY SERVER CHANNELS
+        // ======================================================
+
+        if (!event.isFromGuild()) {
             return;
         }
 
@@ -40,17 +44,19 @@ public class MessageListener extends ListenerAdapter {
                         .getContentRaw()
                         .trim();
 
-        String message = normalizeMove(rawMessage);
-
-        System.out.println(
-                "NORMALIZED: " + message
-        );
+        if (rawMessage.isEmpty()) {
+            return;
+        }
 
         String playerId =
                 event.getAuthor().getId();
 
         String channelId =
                 event.getChannel().getId();
+
+        // ======================================================
+        // FIND ACTIVE GAMES
+        // ======================================================
 
         List<GameSession> games =
                 GameManager.getInstance()
@@ -59,239 +65,266 @@ public class MessageListener extends ListenerAdapter {
                                 channelId
                         );
 
-        System.out.println(
-                "ACTIVE GAMES FOUND: " + games.size()
-        );
-
-        // Player has no active games here
+        /*
+         * No active games for this user in this channel.
+         *
+         * Do absolutely nothing so normal Discord chat
+         * remains unaffected.
+         */
         if (games.isEmpty()) {
             return;
         }
 
-        System.out.println(
-                "SAN MATCH: "
-                        + SAN_PATTERN.matcher(message).matches()
-        );
+        // ======================================================
+        // DOES MESSAGE LOOK LIKE A CHESS MOVE?
+        // ======================================================
 
-        // Ignore normal conversation
-        if (!SAN_PATTERN.matcher(message).matches()) {
+        if (!SanUtils.isPotentialMoveInput(
+                rawMessage
+        )) {
+
+            /*
+             * Examples:
+             *
+             * hello
+             * nice
+             * gg
+             * bro
+             *
+             * Ignore ordinary conversation.
+             */
             return;
         }
 
-        // Only one active game
-        if (games.size() == 1) {
+        // ======================================================
+        // INVALID SAN SHAPE
+        // ======================================================
 
-            GameSession game = games.getFirst();
-
-            System.out.println(
-                    "PLAYING MOVE "
-                            + message
-                            + " IN GAME "
-                            + game.getShortGameId()
-            );
-
-            MoveResult result =
-                    MoveService.playMove(
-                            game,
-                            playerId,
-                            message
-                    );
+        if (!SanUtils.hasValidSanShape(
+                rawMessage
+        )) {
 
             event.getChannel()
-                    .sendMessage(result.message())
-                    .queue(ignored -> {
-
-                        if (!game.isActive()) {
-
-                            FinalBoardService.sendFinalBoard(
-                                    event.getChannel(),
-                                    event.getGuild(),
-                                    game
-                            );
-                        }
-                    });
+                    .sendMessage(
+                            "❌ `"
+                                    + rawMessage
+                                    + "` is invalid chess notation.\n"
+                                    + "Examples: `e4`, `Nf3`, `Nbd2`, "
+                                    + "`R1e2`, `exd5`, `e8=Q`, `O-O`."
+                    )
+                    .queue();
 
             return;
         }
 
-        // Multiple games
-        String selectId =
+        // ======================================================
+        // ONLY ONE ACTIVE GAME
+        // ======================================================
+
+        if (games.size() == 1) {
+
+            GameSession game =
+                    games.get(0);
+
+            playMove(
+                    event,
+                    game,
+                    playerId,
+                    rawMessage
+            );
+
+            return;
+        }
+
+        // ======================================================
+        // MULTIPLE ACTIVE GAMES
+        // ======================================================
+
+        showGameSelector(
+                event,
+                games,
+                playerId,
+                rawMessage
+        );
+    }
+
+    // ==========================================================
+    // PLAY MOVE DIRECTLY
+    // ==========================================================
+
+    private void playMove(
+            MessageReceivedEvent event,
+            GameSession game,
+            String playerId,
+            String rawMove
+    ) {
+
+        MoveResult result =
+                MoveService.playMove(
+                        game,
+                        playerId,
+                        rawMove
+                );
+
+        event.getChannel()
+                .sendMessage(
+                        result.message()
+                )
+                .queue(ignored -> {
+
+                    /*
+                     * MoveService marks the game inactive
+                     * when the move causes:
+                     *
+                     * - Checkmate
+                     * - Stalemate
+                     * - Threefold repetition
+                     * - 50-move rule
+                     * - Insufficient material
+                     *
+                     * In those cases show the final board.
+                     */
+                    if (result.success()
+                            && !game.isActive()) {
+
+                        FinalBoardService.sendFinalBoard(
+                                event.getChannel(),
+                                event.getGuild(),
+                                game
+                        );
+                    }
+                });
+    }
+
+    // ==========================================================
+    // MULTIPLE-GAME SELECTOR
+    // ==========================================================
+
+    private void showGameSelector(
+            MessageReceivedEvent event,
+            List<GameSession> games,
+            String playerId,
+            String rawMove
+    ) {
+
+        String componentId =
                 "game-move:"
                         + playerId
                         + ":"
-                        + message;
+                        + rawMove;
 
         StringSelectMenu.Builder menu =
-                StringSelectMenu.create(selectId)
+                StringSelectMenu.create(
+                                componentId
+                        )
                         .setPlaceholder(
-                                "Choose which game this move belongs to"
+                                "Choose the game for "
+                                        + rawMove
                         );
-
-        StringBuilder gameList =
-                new StringBuilder(
-                        "♟️ Which game is `"
-                                + message
-                                + "` for?\n\n"
-                );
 
         int count = 0;
 
         for (GameSession game : games) {
 
-            // Discord select menu limit
+            /*
+             * Discord select menus allow
+             * a maximum of 25 options.
+             */
             if (count >= 25) {
                 break;
             }
-
-            String opponentId =
-                    game.isWhite(playerId)
-                            ? game.getBlackPlayerId()
-                            : game.getWhitePlayerId();
 
             String colour =
                     game.isWhite(playerId)
                             ? "White"
                             : "Black";
 
-            boolean yourTurn =
-                    (game.isWhite(playerId)
-                            && game.getSideToMove()
-                            == com.github.bhlangonijr.chesslib.Side.WHITE)
-                            ||
-                            (game.isBlack(playerId)
-                                    && game.getSideToMove()
-                                    == com.github.bhlangonijr.chesslib.Side.BLACK);
+            String opponentId =
+                    game.isWhite(playerId)
+                            ? game.getBlackPlayerId()
+                            : game.getWhitePlayerId();
 
-            gameList
-                    .append("• **")
-                    .append(game.getShortGameId())
-                    .append("** — vs <@")
-                    .append(opponentId)
-                    .append("> — ")
-                    .append(colour)
-                    .append(" — ")
-                    .append(
-                            yourTurn
-                                    ? "Your turn"
-                                    : "Opponent's turn"
-                    )
-                    .append("\n");
+            boolean yourTurn =
+                    isPlayersTurn(
+                            game,
+                            playerId
+                    );
+
+            String turnText =
+                    yourTurn
+                            ? "Your turn"
+                            : "Opponent's turn";
+
+            String label =
+                    "Game "
+                            + game.getShortGameId()
+                            + " • "
+                            + colour;
+
+            String description =
+                    "Opponent: "
+                            + opponentId
+                            + " • "
+                            + turnText;
+
+            /*
+             * Discord limits select option descriptions.
+             * Keep it safely below the limit.
+             */
+            if (description.length() > 100) {
+
+                description =
+                        description.substring(
+                                0,
+                                100
+                        );
+            }
 
             menu.addOption(
-                    "Game " + game.getShortGameId(),
+                    label,
                     game.getGameId(),
-                    colour
-                            + " • "
-                            + (
-                            yourTurn
-                                    ? "Your turn"
-                                    : "Opponent's turn"
-                    )
+                    description
             );
 
             count++;
         }
 
         event.getChannel()
-                .sendMessage(gameList.toString())
+                .sendMessage(
+                        "♟️ You have multiple active games.\n"
+                                + "Choose which game should receive **"
+                                + rawMove
+                                + "**:"
+                )
                 .addComponents(
-                        ActionRow.of(menu.build())
+                        ActionRow.of(
+                                menu.build()
+                        )
                 )
                 .queue();
     }
 
-    private static String normalizeMove(String input) {
+    // ==========================================================
+    // TURN CHECK FOR SELECTOR DISPLAY
+    // ==========================================================
 
-        String move = input.trim();
+    private boolean isPlayersTurn(
+            GameSession game,
+            String playerId
+    ) {
 
-        // Allow 0-0 / o-o
-        move = move.replace('0', 'O');
+        if (game.isWhite(playerId)) {
 
-        if (move.equalsIgnoreCase("o-o")) {
-            return "O-O";
+            return game.getSideToMove()
+                    == Side.WHITE;
         }
 
-        if (move.equalsIgnoreCase("o-o-o")) {
-            return "O-O-O";
+        if (game.isBlack(playerId)) {
+
+            return game.getSideToMove()
+                    == Side.BLACK;
         }
 
-        move = move.toLowerCase(Locale.ROOT);
-
-        if (move.isEmpty()) {
-            return move;
-        }
-
-        char first = move.charAt(0);
-
-        // King, Queen, Rook and Knight are unambiguous
-        if ("kqrn".indexOf(first) >= 0) {
-
-            move =
-                    Character.toUpperCase(first)
-                            + move.substring(1);
-        }
-
-        /*
-         * 'b' is special because it can mean:
-         *
-         * b4    = pawn move
-         * bxc5  = pawn capture
-         *
-         * bf4   = user meant Bf4
-         * bb5   = user meant Bb5
-         * bxe5  = user meant Bxe5
-         */
-        else if (first == 'b' && move.length() >= 2) {
-
-            char second = move.charAt(1);
-
-            boolean pawnMove =
-                    Character.isDigit(second);
-
-            boolean pawnCapture = false;
-
-            if (second == 'x' && move.length() >= 3) {
-
-                char destinationFile =
-                        move.charAt(2);
-
-                // A pawn on the b-file can only capture a-file or c-file
-                pawnCapture =
-                        destinationFile == 'a'
-                                || destinationFile == 'c';
-            }
-
-            if (!pawnMove && !pawnCapture) {
-
-                move =
-                        'B'
-                                + move.substring(1);
-            }
-        }
-
-        // Promotion piece must be uppercase
-        int promotionIndex =
-                move.indexOf('=');
-
-        if (promotionIndex >= 0
-                && promotionIndex + 1 < move.length()) {
-
-            char promotionPiece =
-                    Character.toUpperCase(
-                            move.charAt(promotionIndex + 1)
-                    );
-
-            move =
-                    move.substring(
-                            0,
-                            promotionIndex + 1
-                    )
-                            + promotionPiece
-                            + move.substring(
-                            promotionIndex + 2
-                    );
-        }
-
-        return move;
+        return false;
     }
 }

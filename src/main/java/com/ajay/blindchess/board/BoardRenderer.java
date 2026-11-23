@@ -3,82 +3,120 @@ package com.ajay.blindchess.board;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Square;
+
 import com.github.weisj.jsvg.SVGDocument;
 import com.github.weisj.jsvg.parser.SVGLoader;
 import com.github.weisj.jsvg.view.ViewBox;
 
 import javax.imageio.ImageIO;
+
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+
 import java.awt.image.BufferedImage;
+
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URL;
+
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class BoardRenderer {
+public final class BoardRenderer {
 
-    // =========================
-    // BOARD SIZE
-    // =========================
+    private BoardRenderer() {
+    }
 
     private static final int SQUARE_SIZE = 90;
 
     private static final int BOARD_SIZE =
             SQUARE_SIZE * 8;
 
-    private static final int LABEL_HEIGHT = 65;
+    private static final int COORDINATE_MARGIN = 30;
+
+    private static final int PLAYER_PANEL_HEIGHT = 72;
 
     private static final int IMAGE_WIDTH =
-            BOARD_SIZE;
+            BOARD_SIZE
+                    + (COORDINATE_MARGIN * 2);
 
     private static final int IMAGE_HEIGHT =
-            BOARD_SIZE + (LABEL_HEIGHT * 2);
+            BOARD_SIZE
+                    + (COORDINATE_MARGIN * 2)
+                    + (PLAYER_PANEL_HEIGHT * 2);
 
-    // Space between piece and edge of square
+    private static final int BOARD_X =
+            COORDINATE_MARGIN;
+
+    private static final int BOARD_Y =
+            PLAYER_PANEL_HEIGHT
+                    + COORDINATE_MARGIN;
+
     private static final int PIECE_PADDING = 7;
 
     private static final int PIECE_SIZE =
-            SQUARE_SIZE - (PIECE_PADDING * 2);
-
-    // =========================
-    // BOARD COLORS
-    // =========================
+            SQUARE_SIZE
+                    - (PIECE_PADDING * 2);
 
     private static final Color LIGHT_SQUARE =
-            new Color(240, 217, 181);
+            new Color(
+                    240,
+                    217,
+                    181
+            );
 
     private static final Color DARK_SQUARE =
-            new Color(181, 136, 99);
+            new Color(
+                    181,
+                    136,
+                    99
+            );
 
     private static final Color BACKGROUND =
-            new Color(24, 24, 24);
+            new Color(
+                    24,
+                    24,
+                    24
+            );
 
-    private static final Color PLAYER_NAME_COLOR =
-            Color.WHITE;
+    private static final Color PANEL =
+            new Color(
+                    31,
+                    31,
+                    31
+            );
 
-    // =========================
-    // SVG CACHE
-    // =========================
+    private static final Color TEXT =
+            new Color(
+                    240,
+                    240,
+                    240
+            );
 
-    /*
-     * SVG files are loaded only once.
-     *
-     * After that, the parsed SVGDocument is reused
-     * whenever another board is rendered.
-     */
-    private static final Map<String, SVGDocument> PIECE_CACHE =
+    private static final Color SECONDARY_TEXT =
+            new Color(
+                    170,
+                    170,
+                    170
+            );
+
+    private static final Color BORDER =
+            new Color(
+                    70,
+                    70,
+                    70
+            );
+
+    private static final Map<String, SVGDocument>
+            PIECE_CACHE =
             new ConcurrentHashMap<>();
 
-    private BoardRenderer() {
-    }
-
     // ==========================================================
-    // PUBLIC METHOD
+    // STANDARD BOARD
+    // White at bottom
     // ==========================================================
 
     public static byte[] renderBoard(
@@ -87,22 +125,45 @@ public class BoardRenderer {
             String whitePlayerName
     ) {
 
-        BufferedImage image =
-                new BufferedImage(
-                        IMAGE_WIDTH,
-                        IMAGE_HEIGHT,
-                        BufferedImage.TYPE_INT_ARGB
-                );
+        return renderBoard(
+                board,
+                blackPlayerName,
+                whitePlayerName,
+                true
+        );
+    }
 
-        Graphics2D graphics =
-                image.createGraphics();
+    // ==========================================================
+    // ORIENTED BOARD
+    // ==========================================================
+
+    public static byte[] renderBoard(
+            Board board,
+            String blackPlayerName,
+            String whitePlayerName,
+            boolean whiteAtBottom
+    ) {
 
         try {
 
-            configureGraphics(graphics);
+            BufferedImage image =
+                    new BufferedImage(
+                            IMAGE_WIDTH,
+                            IMAGE_HEIGHT,
+                            BufferedImage.TYPE_INT_ARGB
+                    );
 
-            // Entire background
-            graphics.setColor(BACKGROUND);
+            Graphics2D graphics =
+                    image.createGraphics();
+
+            configureGraphics(
+                    graphics
+            );
+
+            // Background
+            graphics.setColor(
+                    BACKGROUND
+            );
 
             graphics.fillRect(
                     0,
@@ -111,440 +172,88 @@ public class BoardRenderer {
                     IMAGE_HEIGHT
             );
 
-            // Black player name on top
-            drawPlayerName(
-                    graphics,
-                    blackPlayerName,
-                    LABEL_HEIGHT / 2
+            // Player panels
+            graphics.setColor(
+                    PANEL
             );
 
-            // Chess board
-            drawChessBoard(
-                    graphics,
-                    board
+            graphics.fillRect(
+                    0,
+                    0,
+                    IMAGE_WIDTH,
+                    PLAYER_PANEL_HEIGHT
             );
 
-            // White player name at bottom
-            drawPlayerName(
-                    graphics,
-                    whitePlayerName,
-                    LABEL_HEIGHT
-                            + BOARD_SIZE
-                            + LABEL_HEIGHT / 2
+            graphics.fillRect(
+                    0,
+                    IMAGE_HEIGHT
+                            - PLAYER_PANEL_HEIGHT,
+                    IMAGE_WIDTH,
+                    PLAYER_PANEL_HEIGHT
             );
 
-        } finally {
+            String topName =
+                    whiteAtBottom
+                            ? blackPlayerName
+                            : whitePlayerName;
+
+            String bottomName =
+                    whiteAtBottom
+                            ? whitePlayerName
+                            : blackPlayerName;
+
+            String topColour =
+                    whiteAtBottom
+                            ? "BLACK"
+                            : "WHITE";
+
+            String bottomColour =
+                    whiteAtBottom
+                            ? "WHITE"
+                            : "BLACK";
+
+            drawPlayerPanel(
+                    graphics,
+                    topName,
+                    topColour,
+                    true
+            );
+
+            drawPlayerPanel(
+                    graphics,
+                    bottomName,
+                    bottomColour,
+                    false
+            );
+
+            drawBoardSquares(
+                    graphics,
+                    board,
+                    whiteAtBottom
+            );
+
+            drawCoordinates(
+                    graphics,
+                    whiteAtBottom
+            );
+
+            // Border
+            graphics.setColor(
+                    BORDER
+            );
+
+            graphics.setStroke(
+                    new BasicStroke(2)
+            );
+
+            graphics.drawRect(
+                    BOARD_X - 1,
+                    BOARD_Y - 1,
+                    BOARD_SIZE + 1,
+                    BOARD_SIZE + 1
+            );
 
             graphics.dispose();
-        }
-
-        return convertToPng(image);
-    }
-
-    // ==========================================================
-    // GRAPHICS QUALITY
-    // ==========================================================
-
-    private static void configureGraphics(
-            Graphics2D graphics
-    ) {
-
-        graphics.setRenderingHint(
-                RenderingHints.KEY_ANTIALIASING,
-                RenderingHints.VALUE_ANTIALIAS_ON
-        );
-
-        graphics.setRenderingHint(
-                RenderingHints.KEY_STROKE_CONTROL,
-                RenderingHints.VALUE_STROKE_PURE
-        );
-
-        graphics.setRenderingHint(
-                RenderingHints.KEY_RENDERING,
-                RenderingHints.VALUE_RENDER_QUALITY
-        );
-
-        graphics.setRenderingHint(
-                RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BICUBIC
-        );
-
-        graphics.setRenderingHint(
-                RenderingHints.KEY_TEXT_ANTIALIASING,
-                RenderingHints.VALUE_TEXT_ANTIALIAS_ON
-        );
-    }
-
-    // ==========================================================
-    // DRAW BOARD
-    // ==========================================================
-
-    private static void drawChessBoard(
-            Graphics2D graphics,
-            Board board
-    ) {
-
-        /*
-         * row 0 = rank 8
-         * row 7 = rank 1
-         *
-         * Therefore:
-         *
-         * Black is at the top.
-         * White is at the bottom.
-         */
-
-        for (int row = 0; row < 8; row++) {
-
-            int rank =
-                    8 - row;
-
-            for (int file = 0; file < 8; file++) {
-
-                int squareX =
-                        file * SQUARE_SIZE;
-
-                int squareY =
-                        LABEL_HEIGHT
-                                + row * SQUARE_SIZE;
-
-                // Draw square first
-                drawSquare(
-                        graphics,
-                        row,
-                        file,
-                        squareX,
-                        squareY
-                );
-
-                Square square =
-                        getSquare(
-                                file,
-                                rank
-                        );
-
-                Piece piece =
-                        board.getPiece(square);
-
-                if (piece == null
-                        || piece == Piece.NONE) {
-
-                    continue;
-                }
-
-                drawPiece(
-                        graphics,
-                        piece,
-                        squareX,
-                        squareY
-                );
-            }
-        }
-    }
-
-    // ==========================================================
-    // DRAW SQUARE
-    // ==========================================================
-
-    private static void drawSquare(
-            Graphics2D graphics,
-            int row,
-            int file,
-            int x,
-            int y
-    ) {
-
-        boolean lightSquare =
-                (row + file) % 2 == 0;
-
-        graphics.setColor(
-                lightSquare
-                        ? LIGHT_SQUARE
-                        : DARK_SQUARE
-        );
-
-        graphics.fillRect(
-                x,
-                y,
-                SQUARE_SIZE,
-                SQUARE_SIZE
-        );
-    }
-
-    // ==========================================================
-    // FIND CHESSLIB SQUARE
-    // ==========================================================
-
-    private static Square getSquare(
-            int file,
-            int rank
-    ) {
-
-        char fileCharacter =
-                (char) ('A' + file);
-
-        String squareName =
-                String.valueOf(fileCharacter)
-                        + rank;
-
-        return Square.valueOf(
-                squareName
-        );
-    }
-
-    // ==========================================================
-    // DRAW SVG PIECE
-    // ==========================================================
-
-    private static void drawPiece(
-            Graphics2D graphics,
-            Piece piece,
-            int squareX,
-            int squareY
-    ) {
-
-        SVGDocument document =
-                getPieceDocument(piece);
-
-        int x =
-                squareX
-                        + PIECE_PADDING;
-
-        int y =
-                squareY
-                        + PIECE_PADDING;
-
-        /*
-         * Render the SVG directly into this specific
-         * portion of the board.
-         *
-         * No intermediate PNG is required.
-         */
-        ViewBox pieceViewport =
-                new ViewBox(
-                        x,
-                        y,
-                        PIECE_SIZE,
-                        PIECE_SIZE
-                );
-
-        /*
-         * Synchronize on the document so simultaneous
-         * Discord games cannot try rendering the same
-         * cached SVG at the exact same moment.
-         */
-        synchronized (document) {
-
-            document.render(
-                    null,
-                    graphics,
-                    pieceViewport
-            );
-        }
-    }
-
-    // ==========================================================
-    // GET SVG DOCUMENT
-    // ==========================================================
-
-    private static SVGDocument getPieceDocument(
-            Piece piece
-    ) {
-
-        String resourcePath =
-                getPieceResourcePath(piece);
-
-        return PIECE_CACHE.computeIfAbsent(
-                resourcePath,
-                BoardRenderer::loadSvg
-        );
-    }
-
-    // ==========================================================
-    // LOAD SVG
-    // ==========================================================
-
-    private static SVGDocument loadSvg(
-            String resourcePath
-    ) {
-
-        URL svgUrl =
-                BoardRenderer.class
-                        .getClassLoader()
-                        .getResource(resourcePath);
-
-        if (svgUrl == null) {
-
-            throw new IllegalStateException(
-                    "Chess piece SVG was not found: "
-                            + resourcePath
-            );
-        }
-
-        /*
-         * Create a new loader for each load.
-         *
-         * JSVG documentation notes that SVGLoader itself
-         * is not guaranteed to be thread-safe.
-         */
-        SVGLoader loader =
-                new SVGLoader();
-
-        SVGDocument document =
-                loader.load(svgUrl);
-
-        if (document == null) {
-
-            throw new IllegalStateException(
-                    "Could not load chess piece SVG: "
-                            + resourcePath
-            );
-        }
-
-        return document;
-    }
-
-    // ==========================================================
-    // PIECE -> SVG FILE
-    // ==========================================================
-
-    private static String getPieceResourcePath(
-            Piece piece
-    ) {
-
-        return switch (piece) {
-
-            // WHITE
-            case WHITE_KING ->
-                    "pieces/white-king.svg";
-
-            case WHITE_QUEEN ->
-                    "pieces/white-queen.svg";
-
-            case WHITE_ROOK ->
-                    "pieces/white-rook.svg";
-
-            case WHITE_BISHOP ->
-                    "pieces/white-bishop.svg";
-
-            case WHITE_KNIGHT ->
-                    "pieces/white-knight.svg";
-
-            case WHITE_PAWN ->
-                    "pieces/white-pawn.svg";
-
-
-            // BLACK
-            case BLACK_KING ->
-                    "pieces/black-king.svg";
-
-            case BLACK_QUEEN ->
-                    "pieces/black-queen.svg";
-
-            case BLACK_ROOK ->
-                    "pieces/black-rook.svg";
-
-            case BLACK_BISHOP ->
-                    "pieces/black-bishop.svg";
-
-            case BLACK_KNIGHT ->
-                    "pieces/black-knight.svg";
-
-            case BLACK_PAWN ->
-                    "pieces/black-pawn.svg";
-
-
-            default ->
-                    throw new IllegalArgumentException(
-                            "Unsupported chess piece: "
-                                    + piece
-                    );
-        };
-    }
-
-    // ==========================================================
-    // PLAYER NAME
-    // ==========================================================
-
-    private static void drawPlayerName(
-            Graphics2D graphics,
-            String playerName,
-            int centerY
-    ) {
-
-        if (playerName == null
-                || playerName.isBlank()) {
-
-            playerName = "Player";
-        }
-
-        /*
-         * Start at 22 and reduce the font slightly
-         * if someone has a very long Discord name.
-         */
-        int fontSize = 22;
-
-        Font font;
-
-        FontMetrics metrics;
-
-        do {
-
-            font =
-                    new Font(
-                            Font.SANS_SERIF,
-                            Font.BOLD,
-                            fontSize
-                    );
-
-            graphics.setFont(font);
-
-            metrics =
-                    graphics.getFontMetrics();
-
-            if (metrics.stringWidth(playerName)
-                    <= IMAGE_WIDTH - 30) {
-
-                break;
-            }
-
-            fontSize--;
-
-        } while (fontSize > 12);
-
-        int textWidth =
-                metrics.stringWidth(playerName);
-
-        int x =
-                (IMAGE_WIDTH - textWidth) / 2;
-
-        int y =
-                centerY
-                        + (
-                        metrics.getAscent()
-                                - metrics.getDescent()
-                ) / 2;
-
-        graphics.setColor(
-                PLAYER_NAME_COLOR
-        );
-
-        graphics.drawString(
-                playerName,
-                x,
-                y
-        );
-    }
-
-    // ==========================================================
-    // CONVERT TO PNG
-    // ==========================================================
-
-    private static byte[] convertToPng(
-            BufferedImage image
-    ) {
-
-        try {
 
             ByteArrayOutputStream output =
                     new ByteArrayOutputStream();
@@ -557,10 +266,482 @@ public class BoardRenderer {
 
             return output.toByteArray();
 
-        } catch (IOException e) {
+        } catch (Exception e) {
 
             throw new RuntimeException(
-                    "Could not generate chess board PNG.",
+                    "Could not render chess board.",
+                    e
+            );
+        }
+    }
+
+    private static void configureGraphics(
+            Graphics2D graphics
+    ) {
+
+        graphics.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
+        );
+
+        graphics.setRenderingHint(
+                RenderingHints.KEY_TEXT_ANTIALIASING,
+                RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+        );
+
+        graphics.setRenderingHint(
+                RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_QUALITY
+        );
+
+        graphics.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BICUBIC
+        );
+    }
+
+    // ==========================================================
+    // BOARD
+    // ==========================================================
+
+    private static void drawBoardSquares(
+            Graphics2D graphics,
+            Board board,
+            boolean whiteAtBottom
+    ) {
+
+        for (
+                int displayRow = 0;
+                displayRow < 8;
+                displayRow++
+        ) {
+
+            for (
+                    int displayColumn = 0;
+                    displayColumn < 8;
+                    displayColumn++
+            ) {
+
+                int fileIndex;
+                int rankIndex;
+
+                if (whiteAtBottom) {
+
+                    fileIndex =
+                            displayColumn;
+
+                    rankIndex =
+                            7 - displayRow;
+
+                } else {
+
+                    fileIndex =
+                            7 - displayColumn;
+
+                    rankIndex =
+                            displayRow;
+                }
+
+                int x =
+                        BOARD_X
+                                + displayColumn
+                                * SQUARE_SIZE;
+
+                int y =
+                        BOARD_Y
+                                + displayRow
+                                * SQUARE_SIZE;
+
+                boolean light =
+                        (fileIndex + rankIndex)
+                                % 2
+                                != 0;
+
+                graphics.setColor(
+                        light
+                                ? LIGHT_SQUARE
+                                : DARK_SQUARE
+                );
+
+                graphics.fillRect(
+                        x,
+                        y,
+                        SQUARE_SIZE,
+                        SQUARE_SIZE
+                );
+
+                Square square =
+                        getSquare(
+                                fileIndex,
+                                rankIndex
+                        );
+
+                Piece piece =
+                        board.getPiece(
+                                square
+                        );
+
+                if (piece
+                        != Piece.NONE) {
+
+                    drawPiece(
+                            graphics,
+                            piece,
+                            x + PIECE_PADDING,
+                            y + PIECE_PADDING
+                    );
+                }
+            }
+        }
+    }
+
+    private static Square getSquare(
+            int fileIndex,
+            int rankIndex
+    ) {
+
+        char file =
+                (char) (
+                        'A'
+                                + fileIndex
+                );
+
+        int rank =
+                rankIndex + 1;
+
+        return Square.valueOf(
+                String.valueOf(file)
+                        + rank
+        );
+    }
+
+    // ==========================================================
+    // COORDINATES
+    // ==========================================================
+
+    private static void drawCoordinates(
+            Graphics2D graphics,
+            boolean whiteAtBottom
+    ) {
+
+        graphics.setFont(
+                new Font(
+                        "SansSerif",
+                        Font.BOLD,
+                        14
+                )
+        );
+
+        graphics.setColor(
+                SECONDARY_TEXT
+        );
+
+        FontMetrics metrics =
+                graphics.getFontMetrics();
+
+        for (
+                int displayColumn = 0;
+                displayColumn < 8;
+                displayColumn++
+        ) {
+
+            int fileIndex =
+                    whiteAtBottom
+                            ? displayColumn
+                            : 7 - displayColumn;
+
+            String file =
+                    String.valueOf(
+                            (char) (
+                                    'a'
+                                            + fileIndex
+                            )
+                    );
+
+            int squareCenter =
+                    BOARD_X
+                            + displayColumn
+                            * SQUARE_SIZE
+                            + SQUARE_SIZE / 2;
+
+            int textX =
+                    squareCenter
+                            - metrics.stringWidth(file)
+                            / 2;
+
+            // Top coordinate
+            graphics.drawString(
+                    file,
+                    textX,
+                    BOARD_Y - 9
+            );
+
+            // Bottom coordinate
+            graphics.drawString(
+                    file,
+                    textX,
+                    BOARD_Y
+                            + BOARD_SIZE
+                            + 20
+            );
+        }
+
+        for (
+                int displayRow = 0;
+                displayRow < 8;
+                displayRow++
+        ) {
+
+            int rankIndex =
+                    whiteAtBottom
+                            ? 7 - displayRow
+                            : displayRow;
+
+            String rank =
+                    String.valueOf(
+                            rankIndex + 1
+                    );
+
+            int squareCenter =
+                    BOARD_Y
+                            + displayRow
+                            * SQUARE_SIZE
+                            + SQUARE_SIZE / 2;
+
+            int textY =
+                    squareCenter
+                            + metrics.getAscent()
+                            / 2
+                            - 2;
+
+            // Left
+            graphics.drawString(
+                    rank,
+                    9,
+                    textY
+            );
+
+            // Right
+            graphics.drawString(
+                    rank,
+                    BOARD_X
+                            + BOARD_SIZE
+                            + 10,
+                    textY
+            );
+        }
+    }
+
+    // ==========================================================
+    // PLAYER PANEL
+    // ==========================================================
+
+    private static void drawPlayerPanel(
+            Graphics2D graphics,
+            String playerName,
+            String colour,
+            boolean top
+    ) {
+
+        if (playerName == null
+                || playerName.isBlank()) {
+
+            playerName =
+                    colour.equals("WHITE")
+                            ? "White Player"
+                            : "Black Player";
+        }
+
+        int panelStartY =
+                top
+                        ? 0
+                        : IMAGE_HEIGHT
+                        - PLAYER_PANEL_HEIGHT;
+
+        graphics.setColor(
+                SECONDARY_TEXT
+        );
+
+        graphics.setFont(
+                new Font(
+                        "SansSerif",
+                        Font.BOLD,
+                        13
+                )
+        );
+
+        graphics.drawString(
+                colour,
+                24,
+                panelStartY + 24
+        );
+
+        Font playerFont =
+                fitFont(
+                        graphics,
+                        playerName,
+                        IMAGE_WIDTH - 48,
+                        28
+                );
+
+        graphics.setFont(
+                playerFont
+        );
+
+        graphics.setColor(
+                TEXT
+        );
+
+        graphics.drawString(
+                playerName,
+                24,
+                panelStartY + 54
+        );
+    }
+
+    private static Font fitFont(
+            Graphics2D graphics,
+            String text,
+            int maxWidth,
+            int maximumSize
+    ) {
+
+        int size =
+                maximumSize;
+
+        while (size > 14) {
+
+            Font font =
+                    new Font(
+                            "SansSerif",
+                            Font.BOLD,
+                            size
+                    );
+
+            FontMetrics metrics =
+                    graphics.getFontMetrics(
+                            font
+                    );
+
+            if (metrics.stringWidth(text)
+                    <= maxWidth) {
+
+                return font;
+            }
+
+            size--;
+        }
+
+        return new Font(
+                "SansSerif",
+                Font.BOLD,
+                14
+        );
+    }
+
+    // ==========================================================
+    // SVG PIECES
+    // ==========================================================
+
+    private static void drawPiece(
+            Graphics2D graphics,
+            Piece piece,
+            int x,
+            int y
+    ) {
+
+        SVGDocument document =
+                getPieceDocument(
+                        piece
+                );
+
+        if (document == null) {
+            return;
+        }
+
+        synchronized (document) {
+
+            document.render(
+                    null,
+                    graphics,
+                    new ViewBox(
+                            x,
+                            y,
+                            PIECE_SIZE,
+                            PIECE_SIZE
+                    )
+            );
+        }
+    }
+
+    private static SVGDocument getPieceDocument(
+            Piece piece
+    ) {
+
+        String resourceName =
+                piece.name()
+                        .toLowerCase(
+                                Locale.ROOT
+                        )
+                        .replace(
+                                '_',
+                                '-'
+                        )
+                        + ".svg";
+
+        return PIECE_CACHE.computeIfAbsent(
+                resourceName,
+                BoardRenderer::loadSvg
+        );
+    }
+
+    private static SVGDocument loadSvg(
+            String file
+    ) {
+
+        String path =
+                "pieces/" + file;
+
+        try {
+
+            java.net.URL url =
+                    BoardRenderer.class
+                            .getClassLoader()
+                            .getResource(
+                                    path
+                            );
+
+            if (url == null) {
+
+                throw new IllegalStateException(
+                        "Missing SVG resource: "
+                                + path
+                );
+            }
+
+            SVGLoader loader =
+                    new SVGLoader();
+
+            SVGDocument document =
+                    loader.load(
+                            url
+                    );
+
+            if (document == null) {
+
+                throw new IllegalStateException(
+                        "Could not parse SVG: "
+                                + path
+                );
+            }
+
+            return document;
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Could not load SVG: "
+                            + path,
                     e
             );
         }

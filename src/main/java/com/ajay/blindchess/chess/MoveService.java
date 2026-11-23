@@ -2,6 +2,8 @@ package com.ajay.blindchess.chess;
 
 import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
+
+import com.ajay.blindchess.game.SanUtils;
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
@@ -19,33 +21,42 @@ public class MoveService {
 
         synchronized (game) {
 
-            // =========================
+            // ==================================================
             // GAME ALREADY FINISHED
-            // =========================
+            // ==================================================
 
             if (!game.isActive()) {
 
                 return new MoveResult(
                         false,
-                        "❌ This game has already finished."
+                        "❌ Game **"
+                                + game.getShortGameId()
+                                + "** has already finished."
                 );
             }
 
-            Board board = game.getBoard();
+            Board board =
+                    game.getBoard();
 
-            // =========================
+            // ==================================================
             // IDENTIFY PLAYER COLOUR
-            // =========================
+            // ==================================================
 
             Side playerSide;
 
-            if (game.isWhite(playerId)) {
+            if (game.isWhite(
+                    playerId
+            )) {
 
-                playerSide = Side.WHITE;
+                playerSide =
+                        Side.WHITE;
 
-            } else if (game.isBlack(playerId)) {
+            } else if (game.isBlack(
+                    playerId
+            )) {
 
-                playerSide = Side.BLACK;
+                playerSide =
+                        Side.BLACK;
 
             } else {
 
@@ -55,11 +66,12 @@ public class MoveService {
                 );
             }
 
-            // =========================
+            // ==================================================
             // CHECK TURN
-            // =========================
+            // ==================================================
 
-            if (board.getSideToMove() != playerSide) {
+            if (board.getSideToMove()
+                    != playerSide) {
 
                 return new MoveResult(
                         false,
@@ -69,61 +81,112 @@ public class MoveService {
                 );
             }
 
-            // =========================
-            // PARSE SAN
-            // =========================
+            // ==================================================
+            // BASIC SAN VALIDATION
+            // ==================================================
 
-            Move parsedMove;
-
-            try {
-
-                MoveList moveList =
-                        new MoveList(
-                                board.getFen()
-                        );
-
-                moveList.addSanMove(
-                        san,
-                        true,
-                        true
-                );
-
-                parsedMove =
-                        moveList.getLast(
-                        );
-
-            } catch (Exception e) {
+            if (!SanUtils.hasValidSanShape(
+                    san
+            )) {
 
                 return new MoveResult(
                         false,
-                        "❌ `" + san
+                        "❌ `"
+                                + san
                                 + "` is invalid chess notation.\n"
-                                + "Please enter the move again."
+                                + "Examples: `e4`, `Nf3`, `Nbd2`, "
+                                + "`R1e2`, `exd5`, `e8=Q`, `O-O`."
                 );
             }
 
-            // =========================
-            // VALIDATE LEGAL MOVE
-            // =========================
+            // ==================================================
+            // NORMALIZE + PARSE SAN
+            // ==================================================
 
-            List<Move> legalMoves =
-                    board.legalMoves();
+            Move parsedMove = null;
 
-            if (!legalMoves.contains(parsedMove)) {
+            String acceptedSan = null;
+
+            List<String> candidates =
+                    SanUtils.normalizedCandidates(
+                            san
+                    );
+
+            for (String candidate :
+                    candidates) {
+
+                try {
+
+                    MoveList moveList =
+                            new MoveList(
+                                    board.getFen()
+                            );
+
+                    moveList.addSanMove(
+                            candidate,
+                            true,
+                            true
+                    );
+
+                    if (moveList.isEmpty()) {
+                        continue;
+                    }
+
+                    Move candidateMove =
+                            moveList.getLast();
+
+                    List<Move> legalMoves =
+                            board.legalMoves();
+
+                    if (!legalMoves.contains(
+                            candidateMove
+                    )) {
+
+                        continue;
+                    }
+
+                    parsedMove =
+                            candidateMove;
+
+                    acceptedSan =
+                            candidate;
+
+                    break;
+
+                } catch (Exception ignored) {
+
+                    /*
+                     * Try next possible interpretation.
+                     *
+                     * Especially important for:
+                     *
+                     * b4   -> pawn
+                     * bf4  -> Bishop
+                     * bxc5 -> potentially ambiguous lowercase input
+                     */
+                }
+            }
+
+            // ==================================================
+            // ILLEGAL MOVE
+            // ==================================================
+
+            if (parsedMove == null) {
 
                 return new MoveResult(
                         false,
-                        "❌ `" + san
-                                + "` is illegal in Game **"
+                        "🚫 `"
+                                + san
+                                + "` is not legal in Game **"
                                 + game.getShortGameId()
                                 + "**.\n"
                                 + "Please enter the move again."
                 );
             }
 
-            // =========================
+            // ==================================================
             // PLAY MOVE
-            // =========================
+            // ==================================================
 
             boolean moved =
                     board.doMove(
@@ -139,16 +202,19 @@ public class MoveService {
                 );
             }
 
-            // Store SAN in move history
-            game.addMove(san);
+            // Store normalized SAN
+            game.addMove(
+                    acceptedSan
+            );
 
-            // =========================
+            // ==================================================
             // CHECKMATE
-            // =========================
+            // ==================================================
 
             if (board.isMated()) {
 
-                if (playerSide == Side.WHITE) {
+                if (playerSide
+                        == Side.WHITE) {
 
                     game.finishGame(
                             1,
@@ -165,30 +231,38 @@ public class MoveService {
                     );
                 }
 
-                // Save completed state
                 saveGames();
 
                 return new MoveResult(
                         true,
                         "♟️ **"
-                                + san
+                                + acceptedSan
                                 + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
+
                                 + "♚ **CHECKMATE**\n\n"
-                                + getResultText(game)
+
+                                + getResultText(
+                                game
+                        )
+
                                 + "\n\n"
+
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```\n"
-                                + getRevealHistoryText(game)
+
+                                + getRevealHistoryText(
+                                game
+                        )
                 );
             }
 
-            // =========================
+            // ==================================================
             // STALEMATE
-            // =========================
+            // ==================================================
 
             if (board.isStaleMate()) {
 
@@ -203,42 +277,40 @@ public class MoveService {
                 return new MoveResult(
                         true,
                         "♟️ **"
-                                + san
+                                + acceptedSan
                                 + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
-                                + "🤝 **STALEMATE**\n\n"
-                                + getResultText(game)
+
+                                + "🤝 **DRAW — STALEMATE**\n\n"
+
+                                + getResultText(
+                                game
+                        )
+
                                 + "\n\n"
+
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```\n"
-                                + getRevealHistoryText(game)
+
+                                + getRevealHistoryText(
+                                game
+                        )
                 );
             }
 
-            // =========================
-            // OTHER AUTOMATIC DRAW
-            // =========================
+            // ==================================================
+            // THREEFOLD REPETITION
+            // ==================================================
 
-            /*
-             * Chesslib's isDraw() also handles states such as:
-             *
-             * - Threefold repetition
-             * - 50-move rule
-             * - Insufficient material
-             *
-             * Stalemate was already handled above so that
-             * we can display a specific message.
-             */
-
-            if (board.isDraw()) {
+            if (board.isRepetition()) {
 
                 game.finishGame(
                         0.5,
                         0.5,
-                        "Draw"
+                        "Threefold Repetition"
                 );
 
                 saveGames();
@@ -246,24 +318,123 @@ public class MoveService {
                 return new MoveResult(
                         true,
                         "♟️ **"
-                                + san
+                                + acceptedSan
                                 + "** played"
                                 + " • Game **"
                                 + game.getShortGameId()
                                 + "**\n\n"
-                                + "🤝 **DRAW**\n\n"
-                                + getResultText(game)
+
+                                + "🤝 **DRAW — THREEFOLD REPETITION**\n\n"
+
+                                + getResultText(
+                                game
+                        )
+
                                 + "\n\n"
+
                                 + "**Moves**\n```"
                                 + game.getFormattedMoveHistory()
                                 + "```\n"
-                                + getRevealHistoryText(game)
+
+                                + getRevealHistoryText(
+                                game
+                        )
                 );
             }
 
-            // =========================
+            // ==================================================
+            // 50-MOVE RULE
+            // ==================================================
+
+            /*
+             * 50 moves by both players =
+             * 100 half-moves.
+             *
+             * Chesslib resets this counter after
+             * a pawn move or capture.
+             */
+            if (board.getHalfMoveCounter()
+                    >= 100) {
+
+                game.finishGame(
+                        0.5,
+                        0.5,
+                        "50-Move Rule"
+                );
+
+                saveGames();
+
+                return new MoveResult(
+                        true,
+                        "♟️ **"
+                                + acceptedSan
+                                + "** played"
+                                + " • Game **"
+                                + game.getShortGameId()
+                                + "**\n\n"
+
+                                + "🤝 **DRAW — 50-MOVE RULE**\n\n"
+
+                                + getResultText(
+                                game
+                        )
+
+                                + "\n\n"
+
+                                + "**Moves**\n```"
+                                + game.getFormattedMoveHistory()
+                                + "```\n"
+
+                                + getRevealHistoryText(
+                                game
+                        )
+                );
+            }
+
+            // ==================================================
+            // INSUFFICIENT MATERIAL
+            // ==================================================
+
+            if (board.isInsufficientMaterial()) {
+
+                game.finishGame(
+                        0.5,
+                        0.5,
+                        "Insufficient Material"
+                );
+
+                saveGames();
+
+                return new MoveResult(
+                        true,
+                        "♟️ **"
+                                + acceptedSan
+                                + "** played"
+                                + " • Game **"
+                                + game.getShortGameId()
+                                + "**\n\n"
+
+                                + "🤝 **DRAW — INSUFFICIENT MATERIAL**\n\n"
+
+                                + getResultText(
+                                game
+                        )
+
+                                + "\n\n"
+
+                                + "**Moves**\n```"
+                                + game.getFormattedMoveHistory()
+                                + "```\n"
+
+                                + getRevealHistoryText(
+                                game
+                        )
+                );
+            }
+
+            // ==================================================
             // NORMAL MOVE
-            // =========================
+            // ==================================================
 
             String nextPlayer;
 
@@ -283,7 +454,12 @@ public class MoveService {
                                 + ">";
             }
 
-            String checkMessage = "";
+            // ==================================================
+            // CHECK
+            // ==================================================
+
+            String checkMessage =
+                    "";
 
             if (board.isKingAttacked()) {
 
@@ -291,13 +467,20 @@ public class MoveService {
                         "\n⚠️ **Check!**";
             }
 
-            // Persist successful normal move
+            // ==================================================
+            // SAVE SUCCESSFUL MOVE
+            // ==================================================
+
             saveGames();
+
+            // ==================================================
+            // RESPONSE
+            // ==================================================
 
             return new MoveResult(
                     true,
                     "♟️ **"
-                            + san
+                            + acceptedSan
                             + "** played"
                             + " • Game **"
                             + game.getShortGameId()
@@ -334,7 +517,9 @@ public class MoveService {
                 + formatScore(
                 game.getWhiteScore()
         )
+
                 + "\n"
+
                 + "<@"
                 + game.getBlackPlayerId()
                 + "> : "
@@ -352,16 +537,21 @@ public class MoveService {
     ) {
 
         return "**Board Reveals**\n\n"
+
                 + "<@"
                 + game.getWhitePlayerId()
                 + ">\n"
+
                 + game.getFormattedShowBoardHistory(
                 game.getWhitePlayerId()
         )
+
                 + "\n\n"
+
                 + "<@"
                 + game.getBlackPlayerId()
                 + ">\n"
+
                 + game.getFormattedShowBoardHistory(
                 game.getBlackPlayerId()
         );
