@@ -52,7 +52,7 @@ public class DrawListener extends ListenerAdapter {
         if (games.size() == 1) {
 
             GameSession game =
-                    games.get(0);
+                    games.getFirst();
 
             sendDrawOffer(
                     event,
@@ -146,7 +146,7 @@ public class DrawListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().get(0);
+                event.getValues().getFirst();
 
         GameSession game =
                 GameManager.getInstance()

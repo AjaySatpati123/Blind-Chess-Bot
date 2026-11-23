@@ -49,7 +49,7 @@ public class ResignListener extends ListenerAdapter {
 
             showConfirmation(
                     event,
-                    games.get(0),
+                    games.getFirst(),
                     playerId
             );
 
@@ -134,7 +134,7 @@ public class ResignListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().get(0);
+                event.getValues().getFirst();
 
         GameSession game =
                 GameManager.getInstance()

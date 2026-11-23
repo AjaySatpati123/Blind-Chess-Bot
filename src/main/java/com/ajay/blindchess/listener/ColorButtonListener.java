@@ -8,7 +8,6 @@ import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
 import java.util.concurrent.ThreadLocalRandom;
 import com.ajay.blindchess.board.BoardRenderer;
-import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.utils.FileUpload;
 public class ColorButtonListener extends ListenerAdapter {
 

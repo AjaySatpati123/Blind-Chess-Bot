@@ -46,7 +46,7 @@ public class GameSelectListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().get(0);
+                event.getValues().getFirst();
 
         GameSession game =
                 GameManager.getInstance()

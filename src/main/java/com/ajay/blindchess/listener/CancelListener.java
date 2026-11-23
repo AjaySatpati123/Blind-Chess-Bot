@@ -48,7 +48,7 @@ public class CancelListener extends ListenerAdapter {
 
             sendCancelRequest(
                     event,
-                    games.get(0),
+                    games.getFirst(),
                     playerId
             );
 
@@ -127,7 +127,7 @@ public class CancelListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().get(0);
+                event.getValues().getFirst();
 
         GameSession game =
                 GameManager.getInstance()

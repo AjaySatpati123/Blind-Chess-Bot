@@ -89,8 +89,7 @@ public class MoveService {
                 );
 
                 parsedMove =
-                        moveList.get(
-                                moveList.size() - 1
+                        moveList.getLast(
                         );
 
             } catch (Exception e) {

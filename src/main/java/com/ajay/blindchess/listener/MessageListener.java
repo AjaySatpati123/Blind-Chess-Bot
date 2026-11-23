@@ -81,7 +81,7 @@ public class MessageListener extends ListenerAdapter {
         // Only one active game
         if (games.size() == 1) {
 
-            GameSession game = games.get(0);
+            GameSession game = games.getFirst();
 
             System.out.println(
                     "PLAYING MOVE "

@@ -54,7 +54,7 @@ public class ShowBoardListener extends ListenerAdapter {
         if (games.size() == 1) {
 
             GameSession game =
-                    games.get(0);
+                    games.getFirst();
 
             showBoard(
                     event,
@@ -154,7 +154,7 @@ public class ShowBoardListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().get(0);
+                event.getValues().getFirst();
 
         GameSession game =
                 GameManager.getInstance()
