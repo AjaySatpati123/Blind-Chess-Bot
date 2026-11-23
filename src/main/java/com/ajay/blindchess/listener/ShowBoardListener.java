@@ -3,6 +3,7 @@ package com.ajay.blindchess.listener;
 import com.ajay.blindchess.board.BoardRenderer;
 import com.ajay.blindchess.game.GameManager;
 import com.ajay.blindchess.game.GameSession;
+
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.Guild;
@@ -16,6 +17,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class ShowBoardListener extends ListenerAdapter {
+
+    // ==========================================================
+    // /showboard
+    // ==========================================================
 
     @Override
     public void onSlashCommandInteraction(
@@ -39,6 +44,10 @@ public class ShowBoardListener extends ListenerAdapter {
                                 channelId
                         );
 
+        // ======================================================
+        // NO ACTIVE GAMES
+        // ======================================================
+
         if (games.isEmpty()) {
 
             event.reply(
@@ -50,7 +59,10 @@ public class ShowBoardListener extends ListenerAdapter {
             return;
         }
 
-        // Only one game
+        // ======================================================
+        // ONLY ONE ACTIVE GAME
+        // ======================================================
+
         if (games.size() == 1) {
 
             GameSession game =
@@ -65,7 +77,10 @@ public class ShowBoardListener extends ListenerAdapter {
             return;
         }
 
-        // Multiple games
+        // ======================================================
+        // MULTIPLE ACTIVE GAMES
+        // ======================================================
+
         StringSelectMenu.Builder menu =
                 StringSelectMenu.create(
                                 "showboard:"
@@ -117,6 +132,10 @@ public class ShowBoardListener extends ListenerAdapter {
                 .queue();
     }
 
+    // ==========================================================
+    // GAME SELECTOR
+    // ==========================================================
+
     @Override
     public void onStringSelectInteraction(
             StringSelectInteractionEvent event
@@ -125,7 +144,10 @@ public class ShowBoardListener extends ListenerAdapter {
         String componentId =
                 event.getComponentId();
 
-        if (!componentId.startsWith("showboard:")) {
+        if (!componentId.startsWith(
+                "showboard:"
+        )) {
+
             return;
         }
 
@@ -139,7 +161,10 @@ public class ShowBoardListener extends ListenerAdapter {
         String playerId =
                 parts[1];
 
-        // Only owner of selector may use it
+        // ======================================================
+        // ONLY OWNER OF SELECTOR MAY USE IT
+        // ======================================================
+
         if (!event.getUser()
                 .getId()
                 .equals(playerId)) {
@@ -154,13 +179,17 @@ public class ShowBoardListener extends ListenerAdapter {
         }
 
         String gameId =
-                event.getValues().getFirst();
+                event.getValues()
+                        .getFirst();
 
         GameSession game =
                 GameManager.getInstance()
                         .getGame(gameId);
 
-        // Re-check game
+        // ======================================================
+        // RE-CHECK GAME
+        // ======================================================
+
         if (game == null
                 || !game.isActive()) {
 
@@ -173,7 +202,13 @@ public class ShowBoardListener extends ListenerAdapter {
             return;
         }
 
-        if (!game.hasPlayer(playerId)) {
+        // ======================================================
+        // VERIFY PLAYER
+        // ======================================================
+
+        if (!game.hasPlayer(
+                playerId
+        )) {
 
             event.reply(
                             "❌ You are not a player in this game."
@@ -184,8 +219,15 @@ public class ShowBoardListener extends ListenerAdapter {
             return;
         }
 
+        // ======================================================
+        // VERIFY CHANNEL
+        // ======================================================
+
         if (!game.getChannelId()
-                .equals(event.getChannel().getId())) {
+                .equals(
+                        event.getChannel()
+                                .getId()
+                )) {
 
             event.reply(
                             "❌ That game does not belong to this channel."
@@ -203,6 +245,11 @@ public class ShowBoardListener extends ListenerAdapter {
         );
     }
 
+    // ==========================================================
+    // SHOW BOARD
+    // SLASH COMMAND VERSION
+    // ==========================================================
+
     private void showBoard(
             SlashCommandInteractionEvent event,
             GameSession game,
@@ -210,64 +257,123 @@ public class ShowBoardListener extends ListenerAdapter {
     ) {
 
         /*
-         * Acknowledge immediately because retrieving
-         * members + rendering SVGs can take some time.
+         * Acknowledge immediately.
+         *
+         * Member retrieval + SVG rendering can take some time.
          */
         event.deferReply(true)
                 .queue(hook -> {
 
-                    byte[] boardImage =
-                            createBoardImage(
-                                    event.getGuild(),
-                                    game
-                            );
+                    try {
 
-                    game.recordShowBoard(
-                            playerId
-                    );
+                        // ======================================
+                        // CREATE BOARD IMAGE
+                        // ======================================
 
-                    int count =
-                            getRevealCount(
-                                    game,
-                                    playerId
-                            );
+                        byte[] boardImage =
+                                createBoardImage(
+                                        event.getGuild(),
+                                        game,
+                                        playerId
+                                );
 
-                    FileUpload file =
-                            FileUpload.fromData(
-                                    boardImage,
-                                    "board-"
-                                            + game.getShortGameId()
-                                            + ".png"
-                            );
+                        // ======================================
+                        // RECORD REVEAL
+                        // ======================================
 
-                    hook.editOriginal(
-                                    "👁️ **Board Reveal**"
-                                            + " • Game **"
-                                            + game.getShortGameId()
-                                            + "**\n"
-                                            + "Reveal #"
-                                            + count
-                                            + "\n\n"
-                                            + "This board will disappear in **30 seconds**."
-                            )
-                            .setFiles(file)
-                            .queue(message -> {
+                        game.recordShowBoard(
+                                playerId
+                        );
 
-                                hook.deleteOriginal()
-                                        .queueAfter(
-                                                30,
-                                                TimeUnit.SECONDS
-                                        );
-                            });
+                        // ======================================
+                        // SAVE REVEAL TO JSON
+                        // ======================================
 
-                    sendPublicRevealNotification(
-                            event.getChannel(),
-                            game,
-                            playerId,
-                            count
-                    );
+                        GameManager.getInstance()
+                                .saveNow();
+
+                        // ======================================
+                        // REVEAL COUNT
+                        // ======================================
+
+                        int count =
+                                getRevealCount(
+                                        game,
+                                        playerId
+                                );
+
+                        FileUpload file =
+                                FileUpload.fromData(
+                                        boardImage,
+                                        "board-"
+                                                + game.getShortGameId()
+                                                + ".png"
+                                );
+
+                        // ======================================
+                        // PRIVATE BOARD
+                        // ======================================
+
+                        hook.editOriginal(
+                                        "👁️ **Board Reveal**"
+                                                + " • Game **"
+                                                + game.getShortGameId()
+                                                + "**\n"
+                                                + "Reveal #"
+                                                + count
+                                                + "\n\n"
+                                                + "This board will disappear in **30 seconds**."
+                                )
+                                .setFiles(
+                                        file
+                                )
+                                .queue(
+                                        ignored -> {
+
+                                            hook.deleteOriginal()
+                                                    .queueAfter(
+                                                            30,
+                                                            TimeUnit.SECONDS
+                                                    );
+                                        },
+                                        error -> {
+
+                                            System.err.println(
+                                                    "Failed to display /showboard image: "
+                                                            + error.getMessage()
+                                            );
+                                        }
+                                );
+
+                        // ======================================
+                        // PUBLIC NOTIFICATION
+                        // ======================================
+
+                        sendPublicRevealNotification(
+                                event.getChannel(),
+                                game,
+                                playerId,
+                                count
+                        );
+
+                    } catch (Exception e) {
+
+                        e.printStackTrace();
+
+                        hook.editOriginal(
+                                        "❌ Failed to render the board for Game **"
+                                                + game.getShortGameId()
+                                                + "**."
+                                )
+                                .queue();
+                    }
                 });
     }
+
+    // ==========================================================
+    // SHOW BOARD
+    // SELECT MENU VERSION
+    // ==========================================================
 
     private void showBoard(
             StringSelectInteractionEvent event,
@@ -276,69 +382,130 @@ public class ShowBoardListener extends ListenerAdapter {
     ) {
 
         /*
-         * The selector itself is already ephemeral.
-         * We edit it into the real board.
+         * The selector message is already ephemeral.
+         *
+         * Acknowledge first, then replace the selector
+         * with the board image.
          */
         event.deferEdit()
                 .queue(hook -> {
 
-                    byte[] boardImage =
-                            createBoardImage(
-                                    event.getGuild(),
-                                    game
-                            );
+                    try {
 
-                    game.recordShowBoard(
-                            playerId
-                    );
+                        // ======================================
+                        // CREATE BOARD IMAGE
+                        // ======================================
 
-                    int count =
-                            getRevealCount(
-                                    game,
-                                    playerId
-                            );
+                        byte[] boardImage =
+                                createBoardImage(
+                                        event.getGuild(),
+                                        game,
+                                        playerId
+                                );
 
-                    FileUpload file =
-                            FileUpload.fromData(
-                                    boardImage,
-                                    "board-"
-                                            + game.getShortGameId()
-                                            + ".png"
-                            );
+                        // ======================================
+                        // RECORD REVEAL
+                        // ======================================
 
-                    hook.editOriginal(
-                                    "👁️ **Board Reveal**"
-                                            + " • Game **"
-                                            + game.getShortGameId()
-                                            + "**\n"
-                                            + "Reveal #"
-                                            + count
-                                            + "\n\n"
-                                            + "This board will disappear in **30 seconds**."
-                            )
-                            .setFiles(file)
-                            .setComponents()
-                            .queue(message -> {
+                        game.recordShowBoard(
+                                playerId
+                        );
 
-                                hook.deleteOriginal()
-                                        .queueAfter(
-                                                30,
-                                                TimeUnit.SECONDS
-                                        );
-                            });
+                        // ======================================
+                        // SAVE REVEAL TO JSON
+                        // ======================================
 
-                    sendPublicRevealNotification(
-                            event.getChannel(),
-                            game,
-                            playerId,
-                            count
-                    );
+                        GameManager.getInstance()
+                                .saveNow();
+
+                        // ======================================
+                        // REVEAL COUNT
+                        // ======================================
+
+                        int count =
+                                getRevealCount(
+                                        game,
+                                        playerId
+                                );
+
+                        FileUpload file =
+                                FileUpload.fromData(
+                                        boardImage,
+                                        "board-"
+                                                + game.getShortGameId()
+                                                + ".png"
+                                );
+
+                        // ======================================
+                        // PRIVATE BOARD
+                        // ======================================
+
+                        hook.editOriginal(
+                                        "👁️ **Board Reveal**"
+                                                + " • Game **"
+                                                + game.getShortGameId()
+                                                + "**\n"
+                                                + "Reveal #"
+                                                + count
+                                                + "\n\n"
+                                                + "This board will disappear in **30 seconds**."
+                                )
+                                .setFiles(
+                                        file
+                                )
+                                .setComponents()
+                                .queue(
+                                        ignored -> {
+
+                                            hook.deleteOriginal()
+                                                    .queueAfter(
+                                                            30,
+                                                            TimeUnit.SECONDS
+                                                    );
+                                        },
+                                        error -> {
+
+                                            System.err.println(
+                                                    "Failed to display selected /showboard image: "
+                                                            + error.getMessage()
+                                            );
+                                        }
+                                );
+
+                        // ======================================
+                        // PUBLIC NOTIFICATION
+                        // ======================================
+
+                        sendPublicRevealNotification(
+                                event.getChannel(),
+                                game,
+                                playerId,
+                                count
+                        );
+
+                    } catch (Exception e) {
+
+                        e.printStackTrace();
+
+                        hook.editOriginal(
+                                        "❌ Failed to render the board for Game **"
+                                                + game.getShortGameId()
+                                                + "**."
+                                )
+                                .setComponents()
+                                .queue();
+                    }
                 });
     }
 
+    // ==========================================================
+    // CREATE BOARD IMAGE
+    // ==========================================================
+
     private byte[] createBoardImage(
             Guild guild,
-            GameSession game
+            GameSession game,
+            String playerId
     ) {
 
         String whiteName =
@@ -346,6 +513,10 @@ public class ShowBoardListener extends ListenerAdapter {
 
         String blackName =
                 "Black Player";
+
+        // ======================================================
+        // WHITE PLAYER NAME
+        // ======================================================
 
         if (guild != null) {
 
@@ -357,11 +528,19 @@ public class ShowBoardListener extends ListenerAdapter {
                                 )
                                 .complete();
 
-                whiteName =
-                        whiteMember.getEffectiveName();
+                if (whiteMember != null) {
+
+                    whiteName =
+                            whiteMember.getEffectiveName();
+                }
 
             } catch (Exception ignored) {
+
             }
+
+            // ==================================================
+            // BLACK PLAYER NAME
+            // ==================================================
 
             try {
 
@@ -371,31 +550,71 @@ public class ShowBoardListener extends ListenerAdapter {
                                 )
                                 .complete();
 
-                blackName =
-                        blackMember.getEffectiveName();
+                if (blackMember != null) {
+
+                    blackName =
+                            blackMember.getEffectiveName();
+                }
 
             } catch (Exception ignored) {
+
             }
         }
+
+        // ======================================================
+        // PLAYER-RELATIVE ORIENTATION
+        // ======================================================
+
+        /*
+         * White player:
+         *
+         *      Black
+         *      board
+         *      White
+         *
+         * Black player:
+         *
+         *      White
+         *      board
+         *      Black
+         */
+        boolean whiteAtBottom =
+                game.isWhite(
+                        playerId
+                );
 
         return BoardRenderer.renderBoard(
                 game.getBoard(),
                 blackName,
-                whiteName
+                whiteName,
+                whiteAtBottom
         );
     }
+
+    // ==========================================================
+    // GET REVEAL COUNT
+    // ==========================================================
 
     private int getRevealCount(
             GameSession game,
             String playerId
     ) {
 
-        if (game.isWhite(playerId)) {
-            return game.getWhiteShowBoardCount();
+        if (game.isWhite(
+                playerId
+        )) {
+
+            return game
+                    .getWhiteShowBoardCount();
         }
 
-        return game.getBlackShowBoardCount();
+        return game
+                .getBlackShowBoardCount();
     }
+
+    // ==========================================================
+    // PUBLIC REVEAL NOTIFICATION
+    // ==========================================================
 
     private void sendPublicRevealNotification(
             net.dv8tion.jda.api.entities.channel.middleman.MessageChannel channel,
