@@ -71,6 +71,7 @@ public final class SanUtils {
             return false;
         }
 
+        // Castling
         if (move.equalsIgnoreCase("O-O")
                 || move.equalsIgnoreCase("0-0")
                 || move.equalsIgnoreCase("O-O-O")
@@ -84,20 +85,21 @@ public final class SanUtils {
                         move.charAt(0)
                 );
 
-        if ("abcdefghkqrbn".indexOf(first)
-                < 0) {
-
+        if ("abcdefghkqrbn".indexOf(first) < 0) {
             return false;
         }
 
         /*
-         * Prevent normal chat such as:
+         * Prevent normal Discord chat such as:
          *
          * hello
          * nice
          * bro
          *
-         * from being interpreted as moves.
+         * from being interpreted as chess moves.
+         *
+         * Normal SAN moves always contain a rank digit,
+         * except castling, which was already handled above.
          */
         return move.chars()
                 .anyMatch(
@@ -146,17 +148,41 @@ public final class SanUtils {
             return candidates;
         }
 
-        String move =
+        String originalMove =
                 input.trim();
 
-        if (move.isEmpty()) {
+        if (originalMove.isEmpty()) {
             return candidates;
         }
 
         /*
+         * IMPORTANT:
+         *
+         * Preserve whether the user explicitly typed
+         * uppercase B BEFORE converting anything to lowercase.
+         *
+         * Bxc5 = definitely Bishop
+         * bxc5 = potentially b-pawn OR lowercase Bishop input
+         */
+        boolean explicitlyUppercaseB =
+                originalMove.charAt(0) == 'B';
+
+        String move =
+                originalMove;
+
+        // ======================================================
+        // CASTLING
+        // ======================================================
+
+        /*
          * Allow:
          *
+         * O-O
+         * o-o
          * 0-0
+         *
+         * O-O-O
+         * o-o-o
          * 0-0-0
          */
         move =
@@ -187,17 +213,18 @@ public final class SanUtils {
             return candidates;
         }
 
-        /*
-         * Normalize user input first.
-         */
+        // ======================================================
+        // NORMALIZE CASE
+        // ======================================================
+
         move =
                 move.toLowerCase(
                         Locale.ROOT
                 );
 
-        // =========================
+        // ======================================================
         // PROMOTION
-        // =========================
+        // ======================================================
 
         int promotionIndex =
                 move.indexOf('=');
@@ -227,12 +254,9 @@ public final class SanUtils {
         char first =
                 move.charAt(0);
 
-        // =========================
-        // KING
-        // QUEEN
-        // ROOK
-        // KNIGHT
-        // =========================
+        // ======================================================
+        // KING / QUEEN / ROOK / KNIGHT
+        // ======================================================
 
         if (first == 'k'
                 || first == 'q'
@@ -247,51 +271,74 @@ public final class SanUtils {
             return candidates;
         }
 
-        // =========================
-        // B IS SPECIAL
-        // =========================
+        // ======================================================
+        // BISHOP / B-PAWN AMBIGUITY
+        // ======================================================
 
-        /*
-         * "b" can mean:
-         *
-         * b4      -> b-pawn
-         * bxc5    -> b-pawn capture
-         *
-         * bf4     -> user intended Bf4
-         * bxe5    -> possibly Bxe5
-         * bbd2    -> Bbd2
-         * b1d2    -> B1d2
-         *
-         * We try pawn interpretation FIRST.
-         *
-         * If that isn't legal, MoveService tries
-         * the Bishop interpretation.
-         */
         if (first == 'b') {
+
+            /*
+             * User explicitly typed uppercase B.
+             *
+             * Examples:
+             *
+             * Bf4
+             * Bxc5
+             * Bbd2
+             * B1d2
+             *
+             * These MUST always mean Bishop.
+             */
+            if (explicitlyUppercaseB) {
+
+                candidates.add(
+                        "B"
+                                + move.substring(1)
+                );
+
+                return candidates;
+            }
+
+            /*
+             * Lowercase b is ambiguous because we allow
+             * users to type piece moves in lowercase.
+             *
+             * Examples:
+             *
+             * b4
+             *      -> b-pawn move
+             *
+             * bxc5
+             *      -> could be b-pawn capture
+             *      -> could mean Bxc5 typed lowercase
+             *
+             * bf4
+             *      -> user probably means Bf4
+             *
+             * Therefore:
+             *
+             * 1. Try pawn interpretation
+             * 2. Try Bishop interpretation
+             *
+             * MoveService will choose whichever is actually
+             * legal in the current board position.
+             */
 
             candidates.add(
                     move
             );
 
-            String bishopCandidate =
+            candidates.add(
                     "B"
-                            + move.substring(1);
-
-            if (!bishopCandidate.equals(
-                    move
-            )) {
-
-                candidates.add(
-                        bishopCandidate
-                );
-            }
+                            + move.substring(1)
+            );
 
             return candidates;
         }
 
-        // =========================
+        // ======================================================
         // PAWN MOVE
-        // =========================
+        // ======================================================
 
         candidates.add(
                 move
