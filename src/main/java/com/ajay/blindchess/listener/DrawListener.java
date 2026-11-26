@@ -297,11 +297,41 @@ public class DrawListener extends ListenerAdapter {
         // ACCEPT DRAW
         // =========================
 
-        game.finishGame(
-                0.5,
-                0.5,
-                "Draw Agreement"
-        );
+        boolean drawAccepted;
+
+        synchronized (game) {
+
+            // Re-check INSIDE the lock
+            if (!game.isActive()) {
+
+                drawAccepted = false;
+
+            } else {
+
+                game.finishGame(
+                        0.5,
+                        0.5,
+                        "Draw Agreement"
+                );
+
+                drawAccepted = true;
+            }
+        }
+
+        if (!drawAccepted) {
+
+            event.editMessage(
+                            "❌ This game has already finished."
+                    )
+                    .setComponents()
+                    .queue();
+
+            return;
+        }
+
+        // Save AFTER releasing the game lock
+        GameManager.getInstance()
+                .saveNow();
 
         event.editMessage(
                         "🤝 **Game "
@@ -315,7 +345,7 @@ public class DrawListener extends ListenerAdapter {
                                 + getRevealHistoryText(game)
                 )
                 .setComponents()
-                .queue(message -> {
+                .queue(ignored -> {
 
                     FinalBoardService.sendFinalBoard(
                             event.getChannel(),

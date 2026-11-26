@@ -248,8 +248,41 @@ public class CancelListener extends ListenerAdapter {
             return;
         }
 
-        // Cancel game
-        game.endGame();
+        // =========================
+        // CANCEL GAME
+        // =========================
+
+        boolean cancelled;
+
+        synchronized (game) {
+
+            // Re-check inside the lock
+            if (!game.isActive()) {
+
+                cancelled = false;
+
+            } else {
+
+                game.endGame();
+
+                cancelled = true;
+            }
+        }
+
+        if (!cancelled) {
+
+            event.editMessage(
+                            "❌ This game has already finished."
+                    )
+                    .setComponents()
+                    .queue();
+
+            return;
+        }
+
+        // Save AFTER releasing game lock
+        GameManager.getInstance()
+                .saveNow();
 
         event.editMessage(
                         "❌ **Game "

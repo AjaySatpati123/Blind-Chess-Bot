@@ -312,22 +312,66 @@ public class ResignListener extends ListenerAdapter {
             String playerId
     ) {
 
-        if (game.isWhite(playerId)) {
+        boolean resigned;
 
-            game.finishGame(
-                    0,
-                    1,
-                    "Resignation"
-            );
+        synchronized (game) {
 
-        } else {
+            // Game might have ended after the
+            // confirmation button was displayed.
+            if (!game.isActive()) {
 
-            game.finishGame(
-                    1,
-                    0,
-                    "Resignation"
-            );
+                resigned = false;
+
+            } else {
+
+                if (game.isWhite(playerId)) {
+
+                    game.finishGame(
+                            0,
+                            1,
+                            "Resignation"
+                    );
+
+                } else if (game.isBlack(playerId)) {
+
+                    game.finishGame(
+                            1,
+                            0,
+                            "Resignation"
+                    );
+
+                } else {
+
+                    resigned = false;
+
+                    // Prevent assignment below
+                    event.reply(
+                                    "❌ You are not a player in this game."
+                            )
+                            .setEphemeral(true)
+                            .queue();
+
+                    return;
+                }
+
+                resigned = true;
+            }
         }
+
+        if (!resigned) {
+
+            event.editMessage(
+                            "❌ This game has already finished."
+                    )
+                    .setComponents()
+                    .queue();
+
+            return;
+        }
+
+        // Persistence outside synchronized block
+        GameManager.getInstance()
+                .saveNow();
 
         event.editMessage(
                         "🏳️ You resigned Game **"
