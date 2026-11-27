@@ -31,6 +31,17 @@ public class ShowBoardListener extends ListenerAdapter {
             return;
         }
 
+        if (!event.isFromGuild()) {
+
+            event.reply(
+                            "❌ `/showboard` can only be used inside a Discord server."
+                    )
+                    .setEphemeral(true)
+                    .queue();
+
+            return;
+        }
+
         String playerId =
                 event.getUser().getId();
 

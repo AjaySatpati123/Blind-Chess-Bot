@@ -24,6 +24,17 @@ public class DrawListener extends ListenerAdapter {
             return;
         }
 
+        if (!event.isFromGuild()) {
+
+            event.reply(
+                            "❌ `/draw` can only be used inside a Discord server."
+                    )
+                    .setEphemeral(true)
+                    .queue();
+
+            return;
+        }
+
         String playerId =
                 event.getUser().getId();
 

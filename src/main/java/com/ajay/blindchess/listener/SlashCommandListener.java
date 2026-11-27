@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 
 public class SlashCommandListener extends ListenerAdapter {
 
@@ -15,8 +16,23 @@ public class SlashCommandListener extends ListenerAdapter {
             return;
         }
 
+        if (!event.isFromGuild()) {
+
+            event.reply(
+                            "❌ Blind Chess games can only be used inside a Discord server."
+                    )
+                    .setEphemeral(true)
+                    .queue();
+
+            return;
+        }
+
         User challenger = event.getUser();
-        User opponent = event.getOption("opponent").getAsUser();
+        User opponent =
+                event.getOption(
+                        "opponent",
+                        OptionMapping::getAsUser
+                );
 
         if (challenger.getId().equals(opponent.getId())) {
             event.reply("You cannot challenge yourself.")

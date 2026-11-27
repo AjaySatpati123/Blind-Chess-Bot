@@ -23,6 +23,17 @@ public class ResignListener extends ListenerAdapter {
             return;
         }
 
+        if (!event.isFromGuild()) {
+
+            event.reply(
+                            "❌ `/resign` can only be used inside a Discord server."
+                    )
+                    .setEphemeral(true)
+                    .queue();
+
+            return;
+        }
+
         String playerId = event.getUser().getId();
         String channelId = event.getChannel().getId();
 

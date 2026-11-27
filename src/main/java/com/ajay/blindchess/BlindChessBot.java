@@ -16,6 +16,7 @@ import com.ajay.blindchess.listener.ResignListener;
 import com.ajay.blindchess.listener.CancelListener;
 import com.ajay.blindchess.listener.DrawListener;
 import com.ajay.blindchess.game.GameManager;
+import net.dv8tion.jda.api.interactions.InteractionContextType;
 
 public class BlindChessBot {
 
@@ -61,33 +62,52 @@ public class BlindChessBot {
 
         jda.updateCommands()
                 .addCommands(
+
                         Commands.slash(
                                         "start",
-                                        "Challenge someone to a Blind Chess game"
+                                        "Challenge another player to Blind Chess"
                                 )
                                 .addOption(
                                         OptionType.USER,
                                         "opponent",
-                                        "The player you want to challenge",
+                                        "Player you want to challenge",
                                         true
+                                )
+                                .setContexts(
+                                        InteractionContextType.GUILD
                                 ),
 
                         Commands.slash(
-                                "showboard",
-                                "Temporarily reveal your current chess position"
-                        ),
+                                        "showboard",
+                                        "Temporarily reveal the board"
+                                )
+                                .setContexts(
+                                        InteractionContextType.GUILD
+                                ),
+
                         Commands.slash(
-                                "resign",
-                                "Resign one of your active Blind Chess games"
-                        ),
+                                        "resign",
+                                        "Resign from an active Blind Chess game"
+                                )
+                                .setContexts(
+                                        InteractionContextType.GUILD
+                                ),
+
                         Commands.slash(
-                                "cancel",
-                                "Request cancellation of an active Blind Chess game"
-                        ),
+                                        "cancel",
+                                        "Request cancellation of an active Blind Chess game"
+                                )
+                                .setContexts(
+                                        InteractionContextType.GUILD
+                                ),
+
                         Commands.slash(
-                                "draw",
-                                "Offer a draw in one of your active Blind Chess games"
-                        )
+                                        "draw",
+                                        "Offer a draw in one of your active Blind Chess games"
+                                )
+                                .setContexts(
+                                        InteractionContextType.GUILD
+                                )
                 )
                 .queue();
 
